@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// SavingsDai.sol -- A tokenized representation DAI in the DSR (pot)
+/// SNst.sol
 
 // Copyright (C) 2017, 2018, 2019 dbrock, rain, mrchico
-// Copyright (C) 2021-2022 Dai Foundation
+// Copyright (C) 2021 Dai Foundation
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -18,7 +18,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.21;
+
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 interface IERC1271 {
     function isValidSignature(
@@ -29,76 +31,111 @@ interface IERC1271 {
 
 interface VatLike {
     function hope(address) external;
+    function suck(address, address, uint256) external;
 }
 
-interface PotLike {
-    function chi() external view returns (uint256);
-    function rho() external view returns (uint256);
-    function dsr() external view returns (uint256);
-    function drip() external returns (uint256);
-    function join(uint256) external;
-    function exit(uint256) external;
-}
-
-interface DaiJoinLike {
+interface NstJoinLike {
     function vat() external view returns (address);
-    function dai() external view returns (address);
-    function join(address, uint256) external;
+    function nst() external view returns (address);
     function exit(address, uint256) external;
 }
 
-interface DaiLike {
-    function transferFrom(address, address, uint256) external returns (bool);
-    function approve(address, uint256) external returns (bool);
+interface NstLike {
+    function transfer(address, uint256) external;
+    function transferFrom(address, address, uint256) external;
 }
 
-contract SavingsDai {
+contract SNst is UUPSUpgradeable {
 
-    // --- ERC20 Data ---
-    string  public constant name     = "Savings Dai";
-    string  public constant symbol   = "sDAI";
-    string  public constant version  = "1";
-    uint8   public constant decimals = 18;
-    uint256 public totalSupply;
+    // --- Storage Variables ---
 
+    // Admin
+    mapping (address => uint256) public wards;
+    // ERC20
+    uint256                                           public totalSupply;
     mapping (address => uint256)                      public balanceOf;
     mapping (address => mapping (address => uint256)) public allowance;
     mapping (address => uint256)                      public nonces;
+    // Savings yield
+    uint192 public chi;   // The Rate Accumulator  [ray]
+    uint64  public rho;   // Time of last drip     [unix epoch time]
+    uint256 public nsr;   // The NST Savings Rate  [ray]
 
-    // --- Data ---
-    VatLike     public immutable vat;
-    DaiJoinLike public immutable daiJoin;
-    DaiLike     public immutable dai;
-    PotLike     public immutable pot;
+    // --- Constants ---
 
-    // --- Events ---
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
-    event Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares);
-    event Referral(uint16 indexed referral, address indexed owner, uint256 assets, uint256 shares);
-
-    // --- EIP712 niceties ---
-    uint256 public immutable deploymentChainId;
-    bytes32 private immutable _DOMAIN_SEPARATOR;
-    bytes32 public constant PERMIT_TYPEHASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
-    
+    // ERC20
+    string  public constant name     = "Savings Nst";
+    string  public constant symbol   = "sNST";
+    string  public constant version  = "1";
+    uint8   public constant decimals = 18;
+    // Math
     uint256 private constant RAY = 10 ** 27;
 
-    constructor(address _daiJoin, address _pot) {
-        daiJoin = DaiJoinLike(_daiJoin);
-        vat = VatLike(daiJoin.vat());
-        dai = DaiLike(daiJoin.dai());
-        pot = PotLike(_pot);
+    // --- Immutables ---
 
-        deploymentChainId = block.chainid;
-        _DOMAIN_SEPARATOR = _calculateDomainSeparator(block.chainid);
+    // EIP712
+    bytes32 public constant PERMIT_TYPEHASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+    // Savings yield
+    NstJoinLike public immutable nstJoin;
+    VatLike     public immutable vat;
+    NstLike     public immutable nst;
+    address     public immutable vow;
 
-        vat.hope(address(daiJoin));
-        vat.hope(address(pot));
+    // --- Events ---
 
-        dai.approve(address(daiJoin), type(uint256).max);
+    // Admin
+    event Rely(address indexed usr);
+    event Deny(address indexed usr);
+    event File(bytes32 indexed what, uint256 data);
+    // ERC20
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    // ERC4626
+    event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
+    event Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares);
+    // Referral
+    event Referral(uint16 indexed referral, address indexed owner, uint256 assets, uint256 shares);
+    // Savings yield
+    event Drip(uint256 chi, uint256 diff);
+
+    // --- Modifiers ---
+
+    modifier auth {
+        require(wards[msg.sender] == 1, "SNst/not-authorized");
+        _;
     }
+
+    // --- Constructor ---
+
+    constructor(address nstJoin_, address vow_) {
+        _disableInitializers(); // Avoid initializing in the context of the implementation
+
+        nstJoin = NstJoinLike(nstJoin_);
+        vat = VatLike(NstJoinLike(nstJoin_).vat());
+        nst = NstLike(NstJoinLike(nstJoin_).nst());
+        vow = vow_;
+    }
+
+    // --- Upgradability ---
+
+    function initialize() initializer external {
+        chi = uint192(RAY);
+        rho = uint64(block.timestamp);
+        nsr = RAY;
+        vat.hope(address(nstJoin));
+        wards[msg.sender] = 1;
+        emit Rely(msg.sender);
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override auth {}
+
+    function getImplementation() external view returns (address) {
+        return ERC1967Utils.getImplementation();
+    }
+
+    // --- Internals ---
+
+    // EIP712
 
     function _calculateDomainSeparator(uint256 chainId) private view returns (bytes32) {
         return keccak256(
@@ -113,8 +150,10 @@ contract SavingsDai {
     }
 
     function DOMAIN_SEPARATOR() external view returns (bytes32) {
-        return block.chainid == deploymentChainId ? _DOMAIN_SEPARATOR : _calculateDomainSeparator(block.chainid);
+        return _calculateDomainSeparator(block.chainid);
     }
+
+    // Math
 
     function _rpow(uint256 x, uint256 n) internal pure returns (uint256 z) {
         assembly {
@@ -141,17 +180,57 @@ contract SavingsDai {
     }
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        // Note: _divup(0,0) will return 0 differing from natural solidity division
         unchecked {
             z = x != 0 ? ((x - 1) / y) + 1 : 0;
         }
     }
 
+    // --- Admin external functions ---
+
+    function rely(address usr) external auth {
+        wards[usr] = 1;
+        emit Rely(usr);
+    }
+
+    function deny(address usr) external auth {
+        wards[usr] = 0;
+        emit Deny(usr);
+    }
+
+    function file(bytes32 what, uint256 data) external auth {
+        if (what == "nsr") {
+            require(data >= RAY, "SNst/wrong-nsr-value");
+            nsr = data;
+        } else revert("SNst/file-unrecognized-param");
+        emit File(what, data);
+    }
+
+    // --- Savings Rate Accumulation external/internal function ---
+
+    function drip() public returns (uint256 nChi) {
+        (uint256 chi_, uint256 rho_) = (chi, rho);
+        uint256 diff;
+        if (block.timestamp > rho_) {
+            nChi = _rpow(nsr, block.timestamp - rho_) * chi_ / RAY;
+            uint256 totalSupply_ = totalSupply;
+            diff = totalSupply_ * nChi / RAY - totalSupply_ * chi_ / RAY;
+            vat.suck(address(vow), address(this), diff * RAY);
+            nstJoin.exit(address(this), diff);
+            chi = uint192(nChi); // safe as nChi is limited to maxUint256/RAY (which is < maxUint192)
+            rho = uint64(block.timestamp);
+        } else {
+            nChi = chi_;
+        }
+        emit Drip(nChi, diff);
+    }
+
     // --- ERC20 Mutations ---
 
     function transfer(address to, uint256 value) external returns (bool) {
-        require(to != address(0) && to != address(this), "SavingsDai/invalid-address");
+        require(to != address(0) && to != address(this), "SNst/invalid-address");
         uint256 balance = balanceOf[msg.sender];
-        require(balance >= value, "SavingsDai/insufficient-balance");
+        require(balance >= value, "SNst/insufficient-balance");
 
         unchecked {
             balanceOf[msg.sender] = balance - value;
@@ -164,14 +243,14 @@ contract SavingsDai {
     }
 
     function transferFrom(address from, address to, uint256 value) external returns (bool) {
-        require(to != address(0) && to != address(this), "SavingsDai/invalid-address");
+        require(to != address(0) && to != address(this), "SNst/invalid-address");
         uint256 balance = balanceOf[from];
-        require(balance >= value, "SavingsDai/insufficient-balance");
+        require(balance >= value, "SNst/insufficient-balance");
 
         if (from != msg.sender) {
             uint256 allowed = allowance[from][msg.sender];
             if (allowed != type(uint256).max) {
-                require(allowed >= value, "SavingsDai/insufficient-allowance");
+                require(allowed >= value, "SNst/insufficient-allowance");
 
                 unchecked {
                     allowance[from][msg.sender] = allowed - value;
@@ -197,38 +276,14 @@ contract SavingsDai {
         return true;
     }
 
-    function increaseAllowance(address spender, uint256 addedValue) external returns (bool) {
-        uint256 newValue = allowance[msg.sender][spender] + addedValue;
-        allowance[msg.sender][spender] = newValue;
-
-        emit Approval(msg.sender, spender, newValue);
-
-        return true;
-    }
-
-    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool) {
-        uint256 allowed = allowance[msg.sender][spender];
-        require(allowed >= subtractedValue, "SavingsDai/insufficient-allowance");
-        unchecked{
-            allowed = allowed - subtractedValue;
-        }
-        allowance[msg.sender][spender] = allowed;
-
-        emit Approval(msg.sender, spender, allowed);
-
-        return true;
-    }
-
     // --- Mint/Burn Internal ---
 
     function _mint(uint256 assets, uint256 shares, address receiver) internal {
-        require(receiver != address(0) && receiver != address(this), "SavingsDai/invalid-address");
+        require(receiver != address(0) && receiver != address(this), "SNst/invalid-address");
 
-        dai.transferFrom(msg.sender, address(this), assets);
-        daiJoin.join(address(this), assets);
-        pot.join(shares);
+        nst.transferFrom(msg.sender, address(this), assets);
 
-        // note: we don't need an overflow check here b/c shares totalSupply will always be <= dai totalSupply
+        // note: we don't need an overflow check here b/c shares totalSupply will always be <= nst totalSupply
         unchecked {
             balanceOf[receiver] = balanceOf[receiver] + shares;
             totalSupply = totalSupply + shares;
@@ -240,12 +295,12 @@ contract SavingsDai {
 
     function _burn(uint256 assets, uint256 shares, address receiver, address owner) internal {
         uint256 balance = balanceOf[owner];
-        require(balance >= shares, "SavingsDai/insufficient-balance");
+        require(balance >= shares, "SNst/insufficient-balance");
 
         if (owner != msg.sender) {
             uint256 allowed = allowance[owner][msg.sender];
             if (allowed != type(uint256).max) {
-                require(allowed >= shares, "SavingsDai/insufficient-allowance");
+                require(allowed >= shares, "SNst/insufficient-allowance");
 
                 unchecked {
                     allowance[owner][msg.sender] = allowed - shares;
@@ -258,8 +313,7 @@ contract SavingsDai {
             totalSupply      = totalSupply - shares;
         }
 
-        pot.exit(shares);
-        daiJoin.exit(receiver, assets);
+        nst.transfer(receiver, assets);
 
         emit Transfer(owner, address(0), shares);
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
@@ -268,7 +322,7 @@ contract SavingsDai {
     // --- ERC-4626 ---
 
     function asset() external view returns (address) {
-        return address(dai);
+        return address(nst);
     }
 
     function totalAssets() external view returns (uint256) {
@@ -276,15 +330,13 @@ contract SavingsDai {
     }
 
     function convertToShares(uint256 assets) public view returns (uint256) {
-        uint256 rho = pot.rho();
-        uint256 chi = (block.timestamp > rho) ? _rpow(pot.dsr(), block.timestamp - rho) * pot.chi() / RAY : pot.chi();
-        return assets * RAY / chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(nsr, block.timestamp - rho) * chi / RAY : chi;
+        return assets * RAY / chi_;
     }
 
     function convertToAssets(uint256 shares) public view returns (uint256) {
-        uint256 rho = pot.rho();
-        uint256 chi = (block.timestamp > rho) ? _rpow(pot.dsr(), block.timestamp - rho) * pot.chi() / RAY : pot.chi();
-        return shares * chi / RAY;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(nsr, block.timestamp - rho) * chi / RAY : chi;
+        return shares * chi_ / RAY;
     }
 
     function maxDeposit(address) external pure returns (uint256) {
@@ -296,8 +348,7 @@ contract SavingsDai {
     }
 
     function deposit(uint256 assets, address receiver) public returns (uint256 shares) {
-        uint256 chi = (block.timestamp > pot.rho()) ? pot.drip() : pot.chi();
-        shares = assets * RAY / chi;
+        shares = assets * RAY / drip();
         _mint(assets, shares, receiver);
     }
 
@@ -311,14 +362,12 @@ contract SavingsDai {
     }
 
     function previewMint(uint256 shares) external view returns (uint256) {
-        uint256 rho = pot.rho();
-        uint256 chi = (block.timestamp > rho) ? _rpow(pot.dsr(), block.timestamp - rho) * pot.chi() / RAY : pot.chi();
-        return _divup(shares * chi, RAY);
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(nsr, block.timestamp - rho) * chi / RAY : chi;
+        return _divup(shares * chi_, RAY);
     }
 
     function mint(uint256 shares, address receiver) public returns (uint256 assets) {
-        uint256 chi = (block.timestamp > pot.rho()) ? pot.drip() : pot.chi();
-        assets = _divup(shares * chi, RAY);
+        assets = _divup(shares * drip(), RAY);
         _mint(assets, shares, receiver);
     }
 
@@ -332,14 +381,12 @@ contract SavingsDai {
     }
 
     function previewWithdraw(uint256 assets) external view returns (uint256) {
-        uint256 rho = pot.rho();
-        uint256 chi = (block.timestamp > rho) ? _rpow(pot.dsr(), block.timestamp - rho) * pot.chi() / RAY : pot.chi();
-        return _divup(assets * RAY, chi);
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(nsr, block.timestamp - rho) * chi / RAY : chi;
+        return _divup(assets * RAY, chi_);
     }
 
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares) {
-        uint256 chi = (block.timestamp > pot.rho()) ? pot.drip() : pot.chi();
-        shares = _divup(assets * RAY, chi);
+        shares = _divup(assets * RAY, drip());
         _burn(assets, shares, receiver, owner);
     }
 
@@ -352,8 +399,7 @@ contract SavingsDai {
     }
 
     function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets) {
-        uint256 chi = (block.timestamp > pot.rho()) ? pot.drip() : pot.chi();
-        assets = shares * chi / RAY;
+        assets = shares * drip() / RAY;
         _burn(assets, shares, receiver, owner);
     }
 
@@ -393,8 +439,8 @@ contract SavingsDai {
         uint256 deadline,
         bytes memory signature
     ) public {
-        require(block.timestamp <= deadline, "SavingsDai/permit-expired");
-        require(owner != address(0), "SavingsDai/invalid-owner");
+        require(block.timestamp <= deadline, "SNst/permit-expired");
+        require(owner != address(0), "SNst/invalid-owner");
 
         uint256 nonce;
         unchecked { nonce = nonces[owner]++; }
@@ -402,7 +448,7 @@ contract SavingsDai {
         bytes32 digest =
             keccak256(abi.encodePacked(
                 "\x19\x01",
-                block.chainid == deploymentChainId ? _DOMAIN_SEPARATOR : _calculateDomainSeparator(block.chainid),
+                _calculateDomainSeparator(block.chainid),
                 keccak256(abi.encode(
                     PERMIT_TYPEHASH,
                     owner,
@@ -413,7 +459,7 @@ contract SavingsDai {
                 ))
             ));
 
-        require(_isValidSignature(owner, digest, signature), "SavingsDai/invalid-permit");
+        require(_isValidSignature(owner, digest, signature), "SNst/invalid-permit");
 
         allowance[owner][spender] = value;
         emit Approval(owner, spender, value);

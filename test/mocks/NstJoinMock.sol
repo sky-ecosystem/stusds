@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// DaiJoin.sol -- Dai adapter
+/// NstJoin.sol -- Nst adapter
 
 // Copyright (C) 2018 Rain <rainbreak@riseup.net>
 // Copyright (C) 2022 Dai Foundation
@@ -18,9 +18,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.21;
 
-interface DaiLike {
+interface NstLike {
     function burn(address,uint256) external;
     function mint(address,uint256) external;
 }
@@ -29,30 +29,30 @@ interface VatLike {
     function move(address,address,uint256) external;
 }
 
-contract DaiJoinMock {
+contract NstJoinMock {
     VatLike public immutable vat;       // CDP Engine
-    DaiLike public immutable dai;       // Stablecoin Token
+    NstLike public immutable nst;       // Stablecoin Token
     uint256 constant RAY = 10 ** 27;
 
     // --- Events ---
     event Join(address indexed usr, uint256 wad);
     event Exit(address indexed usr, uint256 wad);
 
-    constructor(address vat_, address dai_) {
+    constructor(address vat_, address nst_) {
         vat = VatLike(vat_);
-        dai = DaiLike(dai_);
+        nst = NstLike(nst_);
     }
 
     // --- User's functions ---
     function join(address usr, uint256 wad) external {
         vat.move(address(this), usr, RAY * wad);
-        dai.burn(msg.sender, wad);
+        nst.burn(msg.sender, wad);
         emit Join(usr, wad);
     }
 
     function exit(address usr, uint256 wad) external {
         vat.move(msg.sender, address(this), RAY * wad);
-        dai.mint(usr, wad);
+        nst.mint(usr, wad);
         emit Exit(usr, wad);
     }
 }

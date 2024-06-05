@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// Dai.sol -- Dai token
+/// Nst.sol -- Nst token
 
 // Copyright (C) 2017, 2018, 2019 dbrock, rain, mrchico
-// Copyright (C) 2021-2022 Dai Foundation
+// Copyright (C) 2021 Dai Foundation
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -18,7 +18,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.21;
 
 interface IERC1271 {
     function isValidSignature(
@@ -27,11 +27,11 @@ interface IERC1271 {
     ) external view returns (bytes4);
 }
 
-contract DaiMock {
+contract NstMock {
     mapping (address => uint256) public wards;
 
     // --- ERC20 Data ---
-    string  public constant name     = "Dai Stablecoin";
+    string  public constant name     = "Nst Stablecoin";
     string  public constant symbol   = "DAI";
     string  public constant version  = "3";
     uint8   public constant decimals = 18;
@@ -53,7 +53,7 @@ contract DaiMock {
     bytes32 public constant PERMIT_TYPEHASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
 
     modifier auth {
-        require(wards[msg.sender] == 1, "Dai/not-authorized");
+        require(wards[msg.sender] == 1, "Nst/not-authorized");
         _;
     }
 
@@ -94,9 +94,9 @@ contract DaiMock {
 
     // --- ERC20 Mutations ---
     function transfer(address to, uint256 value) external returns (bool) {
-        require(to != address(0) && to != address(this), "Dai/invalid-address");
+        require(to != address(0) && to != address(this), "Nst/invalid-address");
         uint256 balance = balanceOf[msg.sender];
-        require(balance >= value, "Dai/insufficient-balance");
+        require(balance >= value, "Nst/insufficient-balance");
 
         unchecked {
             balanceOf[msg.sender] = balance - value;
@@ -109,14 +109,14 @@ contract DaiMock {
     }
 
     function transferFrom(address from, address to, uint256 value) external returns (bool) {
-        require(to != address(0) && to != address(this), "Dai/invalid-address");
+        require(to != address(0) && to != address(this), "Nst/invalid-address");
         uint256 balance = balanceOf[from];
-        require(balance >= value, "Dai/insufficient-balance");
+        require(balance >= value, "Nst/insufficient-balance");
 
         if (from != msg.sender) {
             uint256 allowed = allowance[from][msg.sender];
             if (allowed != type(uint256).max) {
-                require(allowed >= value, "Dai/insufficient-allowance");
+                require(allowed >= value, "Nst/insufficient-allowance");
 
                 unchecked {
                     allowance[from][msg.sender] = allowed - value;
@@ -142,31 +142,9 @@ contract DaiMock {
         return true;
     }
 
-    function increaseAllowance(address spender, uint256 addedValue) external returns (bool) {
-        uint256 newValue = allowance[msg.sender][spender] + addedValue;
-        allowance[msg.sender][spender] = newValue;
-
-        emit Approval(msg.sender, spender, newValue);
-
-        return true;
-    }
-
-    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool) {
-        uint256 allowed = allowance[msg.sender][spender];
-        require(allowed >= subtractedValue, "Dai/insufficient-allowance");
-        unchecked{
-            allowed = allowed - subtractedValue;
-        }
-        allowance[msg.sender][spender] = allowed;
-
-        emit Approval(msg.sender, spender, allowed);
-
-        return true;
-    }
-
     // --- Mint/Burn ---
     function mint(address to, uint256 value) external auth {
-        require(to != address(0) && to != address(this), "Dai/invalid-address");
+        require(to != address(0) && to != address(this), "Nst/invalid-address");
         unchecked {
             balanceOf[to] = balanceOf[to] + value; // note: we don't need an overflow check here b/c balanceOf[to] <= totalSupply and there is an overflow check below
         }
@@ -177,12 +155,12 @@ contract DaiMock {
 
     function burn(address from, uint256 value) external {
         uint256 balance = balanceOf[from];
-        require(balance >= value, "Dai/insufficient-balance");
+        require(balance >= value, "Nst/insufficient-balance");
 
         if (from != msg.sender) {
             uint256 allowed = allowance[from][msg.sender];
             if (allowed != type(uint256).max) {
-                require(allowed >= value, "Dai/insufficient-allowance");
+                require(allowed >= value, "Nst/insufficient-allowance");
 
                 unchecked {
                     allowance[from][msg.sender] = allowed - value;
@@ -234,8 +212,8 @@ contract DaiMock {
         uint256 deadline,
         bytes memory signature
     ) public {
-        require(block.timestamp <= deadline, "Dai/permit-expired");
-        require(owner != address(0), "Dai/invalid-owner");
+        require(block.timestamp <= deadline, "Nst/permit-expired");
+        require(owner != address(0), "Nst/invalid-owner");
 
         uint256 nonce;
         unchecked { nonce = nonces[owner]++; }
@@ -254,7 +232,7 @@ contract DaiMock {
                 ))
             ));
 
-        require(_isValidSignature(owner, digest, signature), "Dai/invalid-permit");
+        require(_isValidSignature(owner, digest, signature), "Nst/invalid-permit");
 
         allowance[owner][spender] = value;
         emit Approval(owner, spender, value);
