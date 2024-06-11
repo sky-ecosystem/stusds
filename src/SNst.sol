@@ -234,7 +234,7 @@ contract SNst is UUPSUpgradeable {
 
         unchecked {
             balanceOf[msg.sender] = balance - value;
-            balanceOf[to] += value;
+            balanceOf[to] += value; // note: we don't need an overflow check here b/c sum of all balances == totalSupply
         }
 
         emit Transfer(msg.sender, to, value);
@@ -260,7 +260,7 @@ contract SNst is UUPSUpgradeable {
 
         unchecked {
             balanceOf[from] = balance - value;
-            balanceOf[to] += value;
+            balanceOf[to] += value; // note: we don't need an overflow check here b/c sum of all balances == totalSupply
         }
 
         emit Transfer(from, to, value);
@@ -283,10 +283,9 @@ contract SNst is UUPSUpgradeable {
 
         nst.transferFrom(msg.sender, address(this), assets);
 
-        // note: we don't need an overflow check here b/c shares totalSupply will always be <= nst totalSupply
         unchecked {
-            balanceOf[receiver] = balanceOf[receiver] + shares;
-            totalSupply = totalSupply + shares;
+            balanceOf[receiver] = balanceOf[receiver] + shares; // note: we don't need an overflow check here b/c balanceOf[receiver] <= totalSupply
+            totalSupply = totalSupply + shares; // note: we don't need an overflow check here b/c shares totalSupply will always be <= nst totalSupply
         }
 
         emit Deposit(msg.sender, receiver, assets, shares);
@@ -409,7 +408,7 @@ contract SNst is UUPSUpgradeable {
         address signer,
         bytes32 digest,
         bytes memory signature
-    ) internal view returns (bool) {
+    ) internal view returns (bool valid) {
         if (signature.length == 65) {
             bytes32 r;
             bytes32 s;
@@ -424,12 +423,14 @@ contract SNst is UUPSUpgradeable {
             }
         }
 
-        (bool success, bytes memory result) = signer.staticcall(
-            abi.encodeWithSelector(IERC1271.isValidSignature.selector, digest, signature)
-        );
-        return (success &&
-            result.length == 32 &&
-            abi.decode(result, (bytes4)) == IERC1271.isValidSignature.selector);
+        if (signer.code.length > 0) {
+            (bool success, bytes memory result) = signer.staticcall(
+                abi.encodeCall(IERC1271.isValidSignature, (digest, signature))
+            );
+            valid = (success &&
+                result.length == 32 &&
+                abi.decode(result, (bytes4)) == IERC1271.isValidSignature.selector);
+        }
     }
 
     function permit(
@@ -476,5 +477,4 @@ contract SNst is UUPSUpgradeable {
     ) external {
         permit(owner, spender, value, deadline, abi.encodePacked(r, s, v));
     }
-
 }
