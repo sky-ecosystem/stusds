@@ -264,6 +264,10 @@ contract SNstIntegrationTest is TokenFuzzChecks {
 
         vm.expectRevert("SNst/wrong-nsr-value");
         vm.prank(pauseProxy); token.file("nsr", RAY - 1);
+
+        vm.warp(block.timestamp + 1);
+        vm.expectRevert("SNst/chi-not-up-to-date");
+        vm.prank(pauseProxy); token.file("nsr", RAY);
     }
 
     function testERC20() public {

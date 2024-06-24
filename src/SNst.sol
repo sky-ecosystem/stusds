@@ -119,6 +119,8 @@ contract SNst is UUPSUpgradeable {
     // --- Upgradability ---
 
     function initialize() initializer external {
+        __UUPSUpgradeable_init();
+
         chi = uint192(RAY);
         rho = uint64(block.timestamp);
         nsr = RAY;
@@ -201,6 +203,7 @@ contract SNst is UUPSUpgradeable {
     function file(bytes32 what, uint256 data) external auth {
         if (what == "nsr") {
             require(data >= RAY, "SNst/wrong-nsr-value");
+            require(rho == block.timestamp, "SNst/chi-not-up-to-date");
             nsr = data;
         } else revert("SNst/file-unrecognized-param");
         emit File(what, data);
@@ -308,7 +311,7 @@ contract SNst is UUPSUpgradeable {
         }
 
         unchecked {
-            balanceOf[owner] = balance - shares; // note: we don't need overflow checks b/c require(balance >= value) and balance <= totalSupply
+            balanceOf[owner] = balance - shares; // note: we don't need overflow checks b/c require(balance >= shares) and balance <= totalSupply
             totalSupply      = totalSupply - shares;
         }
 
