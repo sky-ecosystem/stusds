@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// SNst.sol
+/// SUsds.sol
 
 // Copyright (C) 2017, 2018, 2019 dbrock, rain, mrchico
 // Copyright (C) 2021 Dai Foundation
@@ -34,18 +34,18 @@ interface VatLike {
     function suck(address, address, uint256) external;
 }
 
-interface NstJoinLike {
+interface UsdsJoinLike {
     function vat() external view returns (address);
-    function nst() external view returns (address);
+    function usds() external view returns (address);
     function exit(address, uint256) external;
 }
 
-interface NstLike {
+interface UsdsLike {
     function transfer(address, uint256) external;
     function transferFrom(address, address, uint256) external;
 }
 
-contract SNst is UUPSUpgradeable {
+contract SUsds is UUPSUpgradeable {
 
     // --- Storage Variables ---
 
@@ -59,13 +59,13 @@ contract SNst is UUPSUpgradeable {
     // Savings yield
     uint192 public chi;   // The Rate Accumulator  [ray]
     uint64  public rho;   // Time of last drip     [unix epoch time]
-    uint256 public nsr;   // The NST Savings Rate  [ray]
+    uint256 public ssr;   // The USDS Savings Rate [ray]
 
     // --- Constants ---
 
     // ERC20
-    string  public constant name     = "Savings Nst";
-    string  public constant symbol   = "sNST";
+    string  public constant name     = "Savings USDS";
+    string  public constant symbol   = "sUSDS";
     string  public constant version  = "1";
     uint8   public constant decimals = 18;
     // Math
@@ -76,10 +76,10 @@ contract SNst is UUPSUpgradeable {
     // EIP712
     bytes32 public constant PERMIT_TYPEHASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
     // Savings yield
-    NstJoinLike public immutable nstJoin;
-    VatLike     public immutable vat;
-    NstLike     public immutable nst;
-    address     public immutable vow;
+    UsdsJoinLike public immutable usdsJoin;
+    VatLike      public immutable vat;
+    UsdsLike     public immutable usds;
+    address      public immutable vow;
 
     // --- Events ---
 
@@ -101,18 +101,18 @@ contract SNst is UUPSUpgradeable {
     // --- Modifiers ---
 
     modifier auth {
-        require(wards[msg.sender] == 1, "SNst/not-authorized");
+        require(wards[msg.sender] == 1, "SUsds/not-authorized");
         _;
     }
 
     // --- Constructor ---
 
-    constructor(address nstJoin_, address vow_) {
+    constructor(address usdsJoin_, address vow_) {
         _disableInitializers(); // Avoid initializing in the context of the implementation
 
-        nstJoin = NstJoinLike(nstJoin_);
-        vat = VatLike(NstJoinLike(nstJoin_).vat());
-        nst = NstLike(NstJoinLike(nstJoin_).nst());
+        usdsJoin = UsdsJoinLike(usdsJoin_);
+        vat = VatLike(UsdsJoinLike(usdsJoin_).vat());
+        usds = UsdsLike(UsdsJoinLike(usdsJoin_).usds());
         vow = vow_;
     }
 
@@ -123,8 +123,8 @@ contract SNst is UUPSUpgradeable {
 
         chi = uint192(RAY);
         rho = uint64(block.timestamp);
-        nsr = RAY;
-        vat.hope(address(nstJoin));
+        ssr = RAY;
+        vat.hope(address(usdsJoin));
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
@@ -201,11 +201,11 @@ contract SNst is UUPSUpgradeable {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "nsr") {
-            require(data >= RAY, "SNst/wrong-nsr-value");
-            require(rho == block.timestamp, "SNst/chi-not-up-to-date");
-            nsr = data;
-        } else revert("SNst/file-unrecognized-param");
+        if (what == "ssr") {
+            require(data >= RAY, "SUsds/wrong-ssr-value");
+            require(rho == block.timestamp, "SUsds/chi-not-up-to-date");
+            ssr = data;
+        } else revert("SUsds/file-unrecognized-param");
         emit File(what, data);
     }
 
@@ -215,11 +215,11 @@ contract SNst is UUPSUpgradeable {
         (uint256 chi_, uint256 rho_) = (chi, rho);
         uint256 diff;
         if (block.timestamp > rho_) {
-            nChi = _rpow(nsr, block.timestamp - rho_) * chi_ / RAY;
+            nChi = _rpow(ssr, block.timestamp - rho_) * chi_ / RAY;
             uint256 totalSupply_ = totalSupply;
             diff = totalSupply_ * nChi / RAY - totalSupply_ * chi_ / RAY;
             vat.suck(address(vow), address(this), diff * RAY);
-            nstJoin.exit(address(this), diff);
+            usdsJoin.exit(address(this), diff);
             chi = uint192(nChi); // safe as nChi is limited to maxUint256/RAY (which is < maxUint192)
             rho = uint64(block.timestamp);
         } else {
@@ -231,9 +231,9 @@ contract SNst is UUPSUpgradeable {
     // --- ERC20 Mutations ---
 
     function transfer(address to, uint256 value) external returns (bool) {
-        require(to != address(0) && to != address(this), "SNst/invalid-address");
+        require(to != address(0) && to != address(this), "SUsds/invalid-address");
         uint256 balance = balanceOf[msg.sender];
-        require(balance >= value, "SNst/insufficient-balance");
+        require(balance >= value, "SUsds/insufficient-balance");
 
         unchecked {
             balanceOf[msg.sender] = balance - value;
@@ -246,14 +246,14 @@ contract SNst is UUPSUpgradeable {
     }
 
     function transferFrom(address from, address to, uint256 value) external returns (bool) {
-        require(to != address(0) && to != address(this), "SNst/invalid-address");
+        require(to != address(0) && to != address(this), "SUsds/invalid-address");
         uint256 balance = balanceOf[from];
-        require(balance >= value, "SNst/insufficient-balance");
+        require(balance >= value, "SUsds/insufficient-balance");
 
         if (from != msg.sender) {
             uint256 allowed = allowance[from][msg.sender];
             if (allowed != type(uint256).max) {
-                require(allowed >= value, "SNst/insufficient-allowance");
+                require(allowed >= value, "SUsds/insufficient-allowance");
 
                 unchecked {
                     allowance[from][msg.sender] = allowed - value;
@@ -282,13 +282,13 @@ contract SNst is UUPSUpgradeable {
     // --- Mint/Burn Internal ---
 
     function _mint(uint256 assets, uint256 shares, address receiver) internal {
-        require(receiver != address(0) && receiver != address(this), "SNst/invalid-address");
+        require(receiver != address(0) && receiver != address(this), "SUsds/invalid-address");
 
-        nst.transferFrom(msg.sender, address(this), assets);
+        usds.transferFrom(msg.sender, address(this), assets);
 
         unchecked {
             balanceOf[receiver] = balanceOf[receiver] + shares; // note: we don't need an overflow check here b/c balanceOf[receiver] <= totalSupply
-            totalSupply = totalSupply + shares; // note: we don't need an overflow check here b/c shares totalSupply will always be <= nst totalSupply
+            totalSupply = totalSupply + shares; // note: we don't need an overflow check here b/c shares totalSupply will always be <= usds totalSupply
         }
 
         emit Deposit(msg.sender, receiver, assets, shares);
@@ -297,12 +297,12 @@ contract SNst is UUPSUpgradeable {
 
     function _burn(uint256 assets, uint256 shares, address receiver, address owner) internal {
         uint256 balance = balanceOf[owner];
-        require(balance >= shares, "SNst/insufficient-balance");
+        require(balance >= shares, "SUsds/insufficient-balance");
 
         if (owner != msg.sender) {
             uint256 allowed = allowance[owner][msg.sender];
             if (allowed != type(uint256).max) {
-                require(allowed >= shares, "SNst/insufficient-allowance");
+                require(allowed >= shares, "SUsds/insufficient-allowance");
 
                 unchecked {
                     allowance[owner][msg.sender] = allowed - shares;
@@ -315,7 +315,7 @@ contract SNst is UUPSUpgradeable {
             totalSupply      = totalSupply - shares;
         }
 
-        nst.transfer(receiver, assets);
+        usds.transfer(receiver, assets);
 
         emit Transfer(owner, address(0), shares);
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
@@ -324,7 +324,7 @@ contract SNst is UUPSUpgradeable {
     // --- ERC-4626 ---
 
     function asset() external view returns (address) {
-        return address(nst);
+        return address(usds);
     }
 
     function totalAssets() external view returns (uint256) {
@@ -332,12 +332,12 @@ contract SNst is UUPSUpgradeable {
     }
 
     function convertToShares(uint256 assets) public view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(nsr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(ssr, block.timestamp - rho) * chi / RAY : chi;
         return assets * RAY / chi_;
     }
 
     function convertToAssets(uint256 shares) public view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(nsr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(ssr, block.timestamp - rho) * chi / RAY : chi;
         return shares * chi_ / RAY;
     }
 
@@ -364,7 +364,7 @@ contract SNst is UUPSUpgradeable {
     }
 
     function previewMint(uint256 shares) external view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(nsr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(ssr, block.timestamp - rho) * chi / RAY : chi;
         return _divup(shares * chi_, RAY);
     }
 
@@ -383,7 +383,7 @@ contract SNst is UUPSUpgradeable {
     }
 
     function previewWithdraw(uint256 assets) external view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(nsr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(ssr, block.timestamp - rho) * chi / RAY : chi;
         return _divup(assets * RAY, chi_);
     }
 
@@ -443,8 +443,8 @@ contract SNst is UUPSUpgradeable {
         uint256 deadline,
         bytes memory signature
     ) public {
-        require(block.timestamp <= deadline, "SNst/permit-expired");
-        require(owner != address(0), "SNst/invalid-owner");
+        require(block.timestamp <= deadline, "SUsds/permit-expired");
+        require(owner != address(0), "SUsds/invalid-owner");
 
         uint256 nonce;
         unchecked { nonce = nonces[owner]++; }
@@ -463,7 +463,7 @@ contract SNst is UUPSUpgradeable {
                 ))
             ));
 
-        require(_isValidSignature(owner, digest, signature), "SNst/invalid-permit");
+        require(_isValidSignature(owner, digest, signature), "SUsds/invalid-permit");
 
         allowance[owner][spender] = value;
         emit Approval(owner, spender, value);

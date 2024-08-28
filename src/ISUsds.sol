@@ -17,7 +17,7 @@
 
 pragma solidity >=0.8.0;
 
-interface ISNst {
+interface ISUsds {
     function totalSupply() external view returns (uint256);
     function balanceOf(address) external view returns (uint256);
     function allowance(address, address) external view returns (uint256);
@@ -33,9 +33,9 @@ interface ISNst {
     function nonces(address) external view returns (uint256);
     function vat() external view returns (address);
     function vow() external view returns (address);
-    function nstJoin() external view returns (address);
-    function nst() external view returns (address);
-    function nsr() external view returns (uint256);
+    function usdsJoin() external view returns (address);
+    function usds() external view returns (address);
+    function ssr() external view returns (uint256);
     function chi() external view returns (uint256);
     function rho() external view returns (uint256);
     function asset() external view returns (address);

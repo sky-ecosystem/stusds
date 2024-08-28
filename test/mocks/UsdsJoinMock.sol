@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// NstJoin.sol -- Nst adapter
+/// UsdsJoin.sol -- Usds adapter
 
 // Copyright (C) 2018 Rain <rainbreak@riseup.net>
 // Copyright (C) 2022 Dai Foundation
@@ -20,7 +20,7 @@
 
 pragma solidity ^0.8.21;
 
-interface NstLike {
+interface UsdsLike {
     function burn(address,uint256) external;
     function mint(address,uint256) external;
 }
@@ -29,30 +29,30 @@ interface VatLike {
     function move(address,address,uint256) external;
 }
 
-contract NstJoinMock {
-    VatLike public immutable vat;       // CDP Engine
-    NstLike public immutable nst;       // Stablecoin Token
+contract UsdsJoinMock {
+    VatLike  public immutable vat;       // CDP Engine
+    UsdsLike public immutable usds;      // Stablecoin Token
     uint256 constant RAY = 10 ** 27;
 
     // --- Events ---
     event Join(address indexed usr, uint256 wad);
     event Exit(address indexed usr, uint256 wad);
 
-    constructor(address vat_, address nst_) {
-        vat = VatLike(vat_);
-        nst = NstLike(nst_);
+    constructor(address vat_, address usds_) {
+        vat  = VatLike(vat_);
+        usds = UsdsLike(usds_);
     }
 
     // --- User's functions ---
     function join(address usr, uint256 wad) external {
         vat.move(address(this), usr, RAY * wad);
-        nst.burn(msg.sender, wad);
+        usds.burn(msg.sender, wad);
         emit Join(usr, wad);
     }
 
     function exit(address usr, uint256 wad) external {
         vat.move(msg.sender, address(this), RAY * wad);
-        nst.mint(usr, wad);
+        usds.mint(usr, wad);
         emit Exit(usr, wad);
     }
 }

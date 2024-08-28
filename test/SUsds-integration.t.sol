@@ -22,16 +22,16 @@ import "dss-interfaces/Interfaces.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Upgrades, Options } from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
-import { NstMock } from "test/mocks/NstMock.sol";
-import { NstJoinMock } from "test/mocks/NstJoinMock.sol";
+import { UsdsMock } from "test/mocks/UsdsMock.sol";
+import { UsdsJoinMock } from "test/mocks/UsdsJoinMock.sol";
 
-import { SNst, UUPSUpgradeable, Initializable, ERC1967Utils } from "src/SNst.sol";
+import { SUsds, UUPSUpgradeable, Initializable, ERC1967Utils } from "src/SUsds.sol";
 
-import { SNstInstance } from "deploy/SNstInstance.sol";
-import { SNstDeploy } from "deploy/SNstDeploy.sol";
-import { SNstInit, SNstConfig } from "deploy/SNstInit.sol";
+import { SUsdsInstance } from "deploy/SUsdsInstance.sol";
+import { SUsdsDeploy } from "deploy/SUsdsDeploy.sol";
+import { SUsdsInit, SUsdsConfig } from "deploy/SUsdsInit.sol";
 
-contract SNst2 is UUPSUpgradeable {
+contract SUsds2 is UUPSUpgradeable {
     // Admin
     mapping (address => uint256) public wards;
     // ERC20
@@ -42,14 +42,14 @@ contract SNst2 is UUPSUpgradeable {
     // Savings yield
     uint192 public chi;   // The Rate Accumulator  [ray]
     uint64  public rho;   // Time of last drip     [unix epoch time]
-    uint256 public nsr;   // The NST Savings Rate  [ray]
+    uint256 public ssr;   // The USDS Savings Rate [ray]
 
     string  public constant version  = "2";
 
     event UpgradedTo(string version);
 
     modifier auth {
-        require(wards[msg.sender] == 1, "SNst/not-authorized");
+        require(wards[msg.sender] == 1, "SUsds/not-authorized");
         _;
     }
 
@@ -68,16 +68,16 @@ contract SNst2 is UUPSUpgradeable {
     }
 }
 
-contract SNstIntegrationTest is TokenFuzzChecks {
+contract SUsdsIntegrationTest is TokenFuzzChecks {
 
     using GodMode for *;
 
     DssInstance dss;
     address pauseProxy;
-    NstJoinMock nstJoin;
-    NstMock nst;
+    UsdsJoinMock usdsJoin;
+    UsdsMock usds;
 
-    SNst token;
+    SUsds token;
     bool validate;
 
     event Drip(uint256 chi, uint256 diff);
@@ -94,31 +94,31 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         dss = MCD.loadFromChainlog(LOG);
         
         pauseProxy = LOG.getAddress("MCD_PAUSE_PROXY");
-        nst = new NstMock();
-        nstJoin = new NstJoinMock(address(dss.vat), address(nst));
-        nst.rely(address(nstJoin));
+        usds = new UsdsMock();
+        usdsJoin = new UsdsJoinMock(address(dss.vat), address(usds));
+        usds.rely(address(usdsJoin));
 
-        SNstInstance memory inst = SNstDeploy.deploy(address(this), pauseProxy, address(nstJoin));
-        token = SNst(inst.sNst);
-        SNstConfig memory conf = SNstConfig({
-            nstJoin: address(nstJoin),
-            nst: address(nst),
-            nsr: 1000000001547125957863212448
+        SUsdsInstance memory inst = SUsdsDeploy.deploy(address(this), pauseProxy, address(usdsJoin));
+        token = SUsds(inst.sUsds);
+        SUsdsConfig memory conf = SUsdsConfig({
+            usdsJoin: address(usdsJoin),
+            usds: address(usds),
+            ssr: 1000000001547125957863212448
         });
         vm.warp(block.timestamp + 10);
         vm.startPrank(pauseProxy);
-        SNstInit.init(dss, inst, conf);
+        SUsdsInit.init(dss, inst, conf);
         vm.stopPrank();
         assertEq(token.chi(), RAY);
         assertEq(token.rho(), block.timestamp);
-        assertEq(token.nsr(), 1000000001547125957863212448);
-        assertEq(dss.vat.can(address(token), address(nstJoin)), 1);
+        assertEq(token.ssr(), 1000000001547125957863212448);
+        assertEq(dss.vat.can(address(token), address(usdsJoin)), 1);
         assertEq(token.wards(pauseProxy), 1);
         assertEq(token.version(), "1");
-        assertEq(token.getImplementation(), inst.sNstImp);
+        assertEq(token.getImplementation(), inst.sUsdsImp);
 
-        deal(address(nst), address(this), 200 ether);
-        nst.approve(address(token), type(uint256).max);
+        deal(address(usds), address(this), 200 ether);
+        usds.approve(address(token), type(uint256).max);
         token.deposit(100 ether, address(0x222));
     }
 
@@ -160,27 +160,27 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         } else {
             opts.unsafeAllow = 'state-variable-immutable,constructor';
         }
-        opts.constructorData = abi.encode(address(nstJoin), address(0x111));
+        opts.constructorData = abi.encode(address(usdsJoin), address(0x111));
 
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
         address proxy = Upgrades.deployUUPSProxy(
-            "out/SNst.sol/SNst.json",
-            abi.encodeCall(SNst.initialize, ()),
+            "out/SUsds.sol/SUsds.json",
+            abi.encodeCall(SUsds.initialize, ()),
             opts
         );
-        assertEq(SNst(proxy).version(), "1");
-        assertEq(SNst(proxy).wards(address(this)), 1);
+        assertEq(SUsds(proxy).version(), "1");
+        assertEq(SUsds(proxy).wards(address(this)), 1);
     }
 
     function testUpgrade() public {
         address implementation1 = token.getImplementation();
 
-        address newImpl = address(new SNst2());
+        address newImpl = address(new SUsds2());
         vm.startPrank(pauseProxy);
         vm.expectEmit(true, true, true, true);
         emit UpgradedTo("2");
-        token.upgradeToAndCall(newImpl, abi.encodeCall(SNst2.reinitialize, ()));
+        token.upgradeToAndCall(newImpl, abi.encodeCall(SUsds2.reinitialize, ()));
         vm.stopPrank();
 
         address implementation2 = token.getImplementation();
@@ -197,7 +197,7 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         if (!validate) {
             opts.unsafeSkipAllChecks = true;
         } else {
-            opts.referenceContract = "out/SNst.sol/SNst.json";
+            opts.referenceContract = "out/SUsds.sol/SUsds.json";
             opts.unsafeAllow = 'constructor';
         }
 
@@ -206,8 +206,8 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         emit UpgradedTo("2");
         Upgrades.upgradeProxy(
             address(token),
-            "out/SNst-integration.t.sol/SNst2.json",
-            abi.encodeCall(SNst2.reinitialize, ()),
+            "out/SUsds-integration.t.sol/SUsds2.json",
+            abi.encodeCall(SUsds2.reinitialize, ()),
             opts
         );
         vm.stopPrank();
@@ -219,9 +219,9 @@ contract SNstIntegrationTest is TokenFuzzChecks {
     }
 
     function testUpgradeUnauthed() public {
-        address newImpl = address(new SNst2());
-        vm.expectRevert("SNst/not-authorized");
-        vm.prank(address(0x123)); token.upgradeToAndCall(newImpl, abi.encodeCall(SNst2.reinitialize, ()));
+        address newImpl = address(new SUsds2());
+        vm.expectRevert("SUsds/not-authorized");
+        vm.prank(address(0x123)); token.upgradeToAndCall(newImpl, abi.encodeCall(SUsds2.reinitialize, ()));
     }
 
     function testInitializeAgain() public {
@@ -232,55 +232,55 @@ contract SNstIntegrationTest is TokenFuzzChecks {
     function testInitializeDirectly() public {
         address implementation = token.getImplementation();
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        SNst(implementation).initialize();
+        SUsds(implementation).initialize();
     }
 
     function testConstructor() public {
-        address imp = address(new SNst(address(nstJoin), address(0x111)));
+        address imp = address(new SUsds(address(usdsJoin), address(0x111)));
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
-        SNst token2 = SNst(address(new ERC1967Proxy(imp, abi.encodeCall(SNst.initialize, ()))));
-        assertEq(token2.name(), "Savings Nst");
-        assertEq(token2.symbol(), "sNST");
+        SUsds token2 = SUsds(address(new ERC1967Proxy(imp, abi.encodeCall(SUsds.initialize, ()))));
+        assertEq(token2.name(), "Savings USDS");
+        assertEq(token2.symbol(), "sUSDS");
         assertEq(token2.version(), "1");
         assertEq(token2.decimals(), 18);
         assertEq(token2.chi(), RAY);
         assertEq(token2.rho(), block.timestamp);
-        assertEq(token2.nsr(), RAY);
-        assertEq(dss.vat.can(address(token2), address(nstJoin)), 1);
+        assertEq(token2.ssr(), RAY);
+        assertEq(dss.vat.can(address(token2), address(usdsJoin)), 1);
         assertEq(token2.wards(address(this)), 1);
-        assertEq(address(token2.nstJoin()), address(nstJoin));
+        assertEq(address(token2.usdsJoin()), address(usdsJoin));
         assertEq(address(token2.vat()), address(dss.vat));
-        assertEq(address(token2.nst()), address(nst));
+        assertEq(address(token2.usds()), address(usds));
         assertEq(address(token2.vow()), address(0x111));
-        assertEq(address(token2.asset()), address(nst));
+        assertEq(address(token2.asset()), address(usds));
     }
 
     function testAuth() public {
-        checkAuth(address(token), "SNst");
+        checkAuth(address(token), "SUsds");
     }
 
     function testFile() public {
-        checkFileUint(address(token), "SNst", ["nsr"]);
+        checkFileUint(address(token), "SUsds", ["ssr"]);
 
-        vm.expectRevert("SNst/wrong-nsr-value");
-        vm.prank(pauseProxy); token.file("nsr", RAY - 1);
+        vm.expectRevert("SUsds/wrong-ssr-value");
+        vm.prank(pauseProxy); token.file("ssr", RAY - 1);
 
         vm.warp(block.timestamp + 1);
-        vm.expectRevert("SNst/chi-not-up-to-date");
-        vm.prank(pauseProxy); token.file("nsr", RAY);
+        vm.expectRevert("SUsds/chi-not-up-to-date");
+        vm.prank(pauseProxy); token.file("ssr", RAY);
     }
 
     function testERC20() public {
-        checkBulkERC20(address(token), "SNst", "Savings Nst", "sNST", "1", 18);
+        checkBulkERC20(address(token), "SUsds", "Savings USDS", "sUSDS", "1", 18);
     }
 
     function testPermit() public {
-        checkBulkPermit(address(token), "SNst");
+        checkBulkPermit(address(token), "SUsds");
     }
 
     function testConversion() public {
-        assertGt(token.nsr(), 0);
+        assertGt(token.ssr(), 0);
 
         uint256 pshares = token.convertToShares(1e18);
         uint256 passets = token.convertToAssets(pshares);
@@ -301,25 +301,25 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         token.deposit(100 ether, address(this));
         vm.warp(block.timestamp + 100 days);
         uint256 supply = token.totalSupply();
-        uint256 nsrNst = nst.balanceOf(address(token));
+        uint256 ssrUsds = usds.balanceOf(address(token));
         uint256 originalChi = token.chi();
-        uint256 expectedChi1 = _rpow(token.nsr(), block.timestamp - token.rho()) * token.chi() / RAY;
+        uint256 expectedChi1 = _rpow(token.ssr(), block.timestamp - token.rho()) * token.chi() / RAY;
         uint256 diff1 = supply * expectedChi1 / RAY - supply * originalChi / RAY;
         vm.expectEmit();
         emit Drip(expectedChi1, diff1);
         assertEq(token.drip(), expectedChi1);
         assertEq(token.chi(), expectedChi1);
         assertGt(diff1, 0);
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff1);
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff1);
         vm.warp(block.timestamp + 100 days);
-        uint256 expectedChi2 = _rpow(token.nsr(), 100 days) * expectedChi1 / RAY;
+        uint256 expectedChi2 = _rpow(token.ssr(), 100 days) * expectedChi1 / RAY;
         uint256 diff2 = supply * expectedChi2 / RAY - supply * expectedChi1 / RAY;
         vm.expectEmit();
         emit Drip(expectedChi2, diff2);
         assertEq(token.drip(), expectedChi2);
         assertGt(expectedChi2, expectedChi1);
         assertGt(diff2, 0);
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff1 + diff2);
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff1 + diff2);
         vm.expectEmit();
         emit Drip(expectedChi2, 0);
         assertEq(token.drip(), expectedChi2);
@@ -331,10 +331,10 @@ contract SNstIntegrationTest is TokenFuzzChecks {
 
     function testDeposit() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 nsrNst = nst.balanceOf(address(token));
+        uint256 ssrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiLast = _rpow(token.nsr(), 100 days) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.ssr(), 100 days) * chiFirst / RAY;
         assertGt(chiLast, chiFirst);
 
         vm.warp(block.timestamp + 100 days);
@@ -351,18 +351,18 @@ contract SNstIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie);
-        assertLe(token.totalAssets(), nsrNst + diff + 1e18);    // May be slightly less due to rounding error
-        assertGe(token.totalAssets(), nsrNst + diff + 1e18 - 1);
+        assertLe(token.totalAssets(), ssrUsds + diff + 1e18);    // May be slightly less due to rounding error
+        assertGe(token.totalAssets(), ssrUsds + diff + 1e18 - 1);
         assertEq(token.balanceOf(address(0xBEEF)), pie);
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff + _divup(pie * chiLast, RAY));
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + _divup(pie * chiLast, RAY));
     }
 
     function testReferredDeposit() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 nsrNst = nst.balanceOf(address(token));
+        uint256 ssrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiLast = _rpow(token.nsr(), 100 days) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.ssr(), 100 days) * chiFirst / RAY;
         assertGt(chiLast, chiFirst);
 
         vm.warp(block.timestamp + 100 days);
@@ -381,25 +381,25 @@ contract SNstIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie);
-        assertLe(token.totalAssets(), nsrNst + diff + 1e18);    // May be slightly less due to rounding error
-        assertGe(token.totalAssets(), nsrNst + diff + 1e18 - 1);
+        assertLe(token.totalAssets(), ssrUsds + diff + 1e18);    // May be slightly less due to rounding error
+        assertGe(token.totalAssets(), ssrUsds + diff + 1e18 - 1);
         assertEq(token.balanceOf(address(0xBEEF)), pie);
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff + _divup(pie * chiLast, RAY));
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + _divup(pie * chiLast, RAY));
     }
 
     function testDepositBadAddress() public {
-        vm.expectRevert("SNst/invalid-address");
+        vm.expectRevert("SUsds/invalid-address");
         token.deposit(1e18, address(0));
-        vm.expectRevert("SNst/invalid-address");
+        vm.expectRevert("SUsds/invalid-address");
         token.deposit(1e18, address(token));
     }
 
     function testMint() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 nsrNst = nst.balanceOf(address(token));
+        uint256 ssrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiLast = _rpow(token.nsr(), 100 days) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.ssr(), 100 days) * chiFirst / RAY;
         assertGt(chiLast, chiFirst);
 
         vm.warp(block.timestamp + 100 days);
@@ -416,18 +416,18 @@ contract SNstIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie);
-        assertLe(token.totalAssets(), nsrNst + diff + 1e18);    // May be slightly less due to rounding error
-        assertGe(token.totalAssets(), nsrNst + diff + 1e18 - 1);
+        assertLe(token.totalAssets(), ssrUsds + diff + 1e18);    // May be slightly less due to rounding error
+        assertGe(token.totalAssets(), ssrUsds + diff + 1e18 - 1);
         assertEq(token.balanceOf(address(0xBEEF)), pie);
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff + _divup(pie * chiLast, RAY));
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + _divup(pie * chiLast, RAY));
     }
 
     function testReferredMint() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 nsrNst = nst.balanceOf(address(token));
+        uint256 ssrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiLast = _rpow(token.nsr(), 100 days) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.ssr(), 100 days) * chiFirst / RAY;
         assertGt(chiLast, chiFirst);
 
         vm.warp(block.timestamp + 100 days);
@@ -446,26 +446,26 @@ contract SNstIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie);
-        assertLe(token.totalAssets(), nsrNst + diff + 1e18);    // May be slightly less due to rounding error
-        assertGe(token.totalAssets(), nsrNst + diff + 1e18 - 1);
+        assertLe(token.totalAssets(), ssrUsds + diff + 1e18);    // May be slightly less due to rounding error
+        assertGe(token.totalAssets(), ssrUsds + diff + 1e18 - 1);
         assertEq(token.balanceOf(address(0xBEEF)), pie);
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff + _divup(pie * chiLast, RAY));
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + _divup(pie * chiLast, RAY));
     }
 
     function testMintBadAddress() public {
-        vm.expectRevert("SNst/invalid-address");
+        vm.expectRevert("SUsds/invalid-address");
         token.mint(1e18, address(0));
-        vm.expectRevert("SNst/invalid-address");
+        vm.expectRevert("SUsds/invalid-address");
         token.mint(1e18, address(token));
     }
 
     function testRedeem() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 nsrNst = nst.balanceOf(address(token));
+        uint256 ssrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiMiddle = _rpow(token.nsr(), 100 days) * chiFirst / RAY;
-        uint256 chiLast = _rpow(token.nsr(), 200 days) * chiMiddle / RAY;
+        uint256 chiMiddle = _rpow(token.ssr(), 100 days) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.ssr(), 200 days) * chiMiddle / RAY;
         assertGt(chiMiddle, chiFirst);
         assertGt(chiLast, chiMiddle);
 
@@ -476,7 +476,7 @@ contract SNstIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiMiddle);
         uint256 diff = prevSupply * chiMiddle / RAY - prevSupply * chiFirst / RAY;
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff + _divup(pie * chiMiddle, RAY));
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + _divup(pie * chiMiddle, RAY));
 
         vm.warp(block.timestamp + 200 days);
 
@@ -493,24 +493,24 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie - pie * 0.9e18 / WAD);
         assertEq(token.balanceOf(address(0xBEEF)), pie - pie * 0.9e18 / WAD);
-        assertEq(nst.balanceOf(address(0xAAA)), (pie * 0.9e18 / WAD) * chiLast / RAY);
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff + 1e18 - (pie * 0.9e18 / WAD) * chiLast / RAY);
+        assertEq(usds.balanceOf(address(0xAAA)), (pie * 0.9e18 / WAD) * chiLast / RAY);
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + 1e18 - (pie * 0.9e18 / WAD) * chiLast / RAY);
 
         vm.prank(address(0xBEEF));
         token.redeem(pie - pie * 0.9e18 / WAD, address(0xAAA), address(0xBEEF));
         assertEq(token.totalSupply(), prevSupply);
         assertEq(token.balanceOf(address(0xBEEF)), 0);
-        assertEq(nst.balanceOf(address(0xAAA)), (pie * 0.9e18 / WAD) * chiLast / RAY + (pie - pie * 0.9e18 / WAD) * chiLast / RAY);
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff + 1e18 - (pie * 0.9e18 / WAD) * chiLast / RAY - (pie - pie * 0.9e18 / WAD) * chiLast / RAY);
+        assertEq(usds.balanceOf(address(0xAAA)), (pie * 0.9e18 / WAD) * chiLast / RAY + (pie - pie * 0.9e18 / WAD) * chiLast / RAY);
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + 1e18 - (pie * 0.9e18 / WAD) * chiLast / RAY - (pie - pie * 0.9e18 / WAD) * chiLast / RAY);
     }
 
     function testWithdraw() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 nsrNst = nst.balanceOf(address(token));
+        uint256 ssrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiMiddle = _rpow(token.nsr(), 100 days) * chiFirst / RAY;
-        uint256 chiLast = _rpow(token.nsr(), 200 days) * chiMiddle / RAY;
+        uint256 chiMiddle = _rpow(token.ssr(), 100 days) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.ssr(), 200 days) * chiMiddle / RAY;
         assertGt(chiMiddle, chiFirst);
         assertGt(chiLast, chiMiddle);
 
@@ -521,7 +521,7 @@ contract SNstIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiMiddle);
         uint256 diff = prevSupply * chiMiddle / RAY - prevSupply * chiFirst / RAY;
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff + 1e18);
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + 1e18);
 
         vm.warp(block.timestamp + 200 days);
 
@@ -540,16 +540,16 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie - shares);
         assertEq(token.balanceOf(address(0xBEEF)), pie - shares);
-        assertEq(nst.balanceOf(address(0xAAA)), assets);
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff + 1e18 - assets);
+        assertEq(usds.balanceOf(address(0xAAA)), assets);
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + 1e18 - assets);
 
         uint256 rAssets = token.balanceOf(address(0xBEEF)) * chiLast / RAY;
         vm.prank(address(0xBEEF));
         token.withdraw(rAssets, address(0xAAA), address(0xBEEF));
         assertEq(token.totalSupply(), prevSupply);
         assertEq(token.balanceOf(address(0xBEEF)), 0);
-        assertEq(nst.balanceOf(address(0xAAA)), assets + rAssets);
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff + 1e18 - (pie * 0.9e18 / WAD) * chiLast / RAY - (pie - pie * 0.9e18 / WAD) * chiLast / RAY);
+        assertEq(usds.balanceOf(address(0xAAA)), assets + rAssets);
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + 1e18 - (pie * 0.9e18 / WAD) * chiLast / RAY - (pie - pie * 0.9e18 / WAD) * chiLast / RAY);
     }
 
     function testSharesEstimatesMatch() public {
@@ -580,7 +580,7 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         uint256 amount1,
         uint256 amount2
     ) public {
-        checkBulkERC20Fuzz(address(token), "SNst", from, to, amount1, amount2);
+        checkBulkERC20Fuzz(address(token), "SUsds", from, to, amount1, amount2);
     }
 
     function testPermitFuzz(
@@ -590,7 +590,7 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         uint256 deadline,
         uint256 nonce
     ) public {
-        checkBulkPermitFuzz(address(token), "SNst", privKey, to, amount, deadline, nonce);
+        checkBulkPermitFuzz(address(token), "SUsds", privKey, to, amount, deadline, nonce);
     }
 
     function testDrip(uint256 amount, uint256 warp, uint256 warp2) public {
@@ -602,25 +602,25 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         token.deposit(amount, address(this));
         vm.warp(block.timestamp + warp);
         uint256 supply = token.totalSupply();
-        uint256 nsrNst = nst.balanceOf(address(token));
+        uint256 ssrUsds = usds.balanceOf(address(token));
         uint256 originalChi = token.chi();
-        uint256 expectedChi1 = _rpow(token.nsr(), block.timestamp - token.rho()) * token.chi() / RAY;
+        uint256 expectedChi1 = _rpow(token.ssr(), block.timestamp - token.rho()) * token.chi() / RAY;
         uint256 diff1 = supply * expectedChi1 / RAY - supply * originalChi / RAY;
         vm.expectEmit();
         emit Drip(expectedChi1, diff1);
         assertEq(token.drip(), expectedChi1);
         assertEq(token.chi(), expectedChi1);
         assertGt(diff1, 0);
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff1);
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff1);
         vm.warp(block.timestamp + warp2);
-        uint256 expectedChi2 = _rpow(token.nsr(), warp2) * expectedChi1 / RAY;
+        uint256 expectedChi2 = _rpow(token.ssr(), warp2) * expectedChi1 / RAY;
         uint256 diff2 = supply * expectedChi2 / RAY - supply * expectedChi1 / RAY;
         vm.expectEmit();
         emit Drip(expectedChi2, diff2);
         assertEq(token.drip(), expectedChi2);
         assertGt(expectedChi2, expectedChi1);
         assertGt(diff2, 0);
-        assertEq(nst.balanceOf(address(token)), nsrNst + diff1 + diff2);
+        assertEq(usds.balanceOf(address(token)), ssrUsds + diff1 + diff2);
         vm.expectEmit();
         emit Drip(expectedChi2, 0);
         assertEq(token.drip(), expectedChi2);
@@ -636,10 +636,10 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         warp %= 365 days;
 
         uint256 prevSupply = token.totalSupply();
-        uint256 nsrNst = nst.balanceOf(address(token));
+        uint256 ssrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiLast = _rpow(token.nsr(), warp) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.ssr(), warp) * chiFirst / RAY;
         assertGe(chiLast, chiFirst);
 
         vm.warp(block.timestamp + warp);
@@ -660,9 +660,9 @@ contract SNstIntegrationTest is TokenFuzzChecks {
             assertEq(ashares, shares);
             assertEq(token.totalSupply(), prevSupply + shares);
             assertEq(token.balanceOf(to), shares);
-            assertEq(nst.balanceOf(address(token)), nsrNst + diff + amount);
+            assertEq(usds.balanceOf(address(token)), ssrUsds + diff + amount);
         } else {
-            vm.expectRevert("SNst/invalid-address");
+            vm.expectRevert("SUsds/invalid-address");
             token.deposit(amount, to);
         }
     }
@@ -674,10 +674,10 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         vm.warp(block.timestamp + warp);
 
         uint256 prevSupply = token.totalSupply();
-        uint256 nsrNst = nst.balanceOf(address(token));
+        uint256 ssrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiLast = _rpow(token.nsr(), warp) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.ssr(), warp) * chiFirst / RAY;
         assertGe(chiLast, chiFirst);
 
         shares %= 100 ether * RAY / chiLast;
@@ -698,9 +698,9 @@ contract SNstIntegrationTest is TokenFuzzChecks {
             assertEq(aassets, assets);
             assertEq(token.totalSupply(), prevSupply + shares);
             assertEq(token.balanceOf(to), shares);
-            assertEq(nst.balanceOf(address(token)), nsrNst + diff + _divup(shares * chiLast, RAY));
+            assertEq(usds.balanceOf(address(token)), ssrUsds + diff + _divup(shares * chiLast, RAY));
         } else {
-            vm.expectRevert("SNst/invalid-address");
+            vm.expectRevert("SUsds/invalid-address");
             token.mint(shares, to);
         }
     }
@@ -709,9 +709,9 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         uint256 chiFirst;
         uint256 chiMiddle;
         uint256 chiLast;
-        uint256 nstBalanceToken;
-        uint256 nstBalanceFrom;
-        uint256 nstBalanceTo;
+        uint256 usdsBalanceToken;
+        uint256 usdsBalanceFrom;
+        uint256 usdsBalanceTo;
     }
 
     function testRedeem(
@@ -723,7 +723,7 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         uint256 warp2
     ) public {
         vm.assume(from != address(0) && from != address(token) && from != address(0x222));
-        vm.assume(to != address(0) && to != address(token) && to != address(0x222));
+        vm.assume(to != address(0) && to != address(token) && to != address(usds) && to != address(0x222));
         depositAmount %= 100 ether;
         redeemAmount %= 100 ether;
 
@@ -732,12 +732,12 @@ contract SNstIntegrationTest is TokenFuzzChecks {
 
         uint256 prevSupply = token.totalSupply();
         TestData memory testData;
-        testData.nstBalanceToken = nst.balanceOf(address(token));
-        testData.nstBalanceFrom = nst.balanceOf(from);
-        testData.nstBalanceTo = nst.balanceOf(to);
+        testData.usdsBalanceToken = usds.balanceOf(address(token));
+        testData.usdsBalanceFrom = usds.balanceOf(from);
+        testData.usdsBalanceTo = usds.balanceOf(to);
         testData.chiFirst = token.chi();
-        testData.chiMiddle = _rpow(token.nsr(), warp) * testData.chiFirst / RAY;
-        testData.chiLast = _rpow(token.nsr(), warp2) * testData.chiMiddle / RAY;
+        testData.chiMiddle = _rpow(token.ssr(), warp) * testData.chiFirst / RAY;
+        testData.chiLast = _rpow(token.ssr(), warp2) * testData.chiMiddle / RAY;
         assertGe(testData.chiMiddle, testData.chiFirst);
         assertGe(testData.chiLast, testData.chiMiddle);
 
@@ -746,15 +746,15 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         uint256 pie = token.convertToShares(depositAmount);
         redeemAmount = bound(redeemAmount, 0, pie);
 
-        deal(address(nst), address(0x222), depositAmount);
+        deal(address(usds), address(0x222), depositAmount);
         vm.startPrank(address(0x222));
-        nst.approve(address(token), depositAmount);
+        usds.approve(address(token), depositAmount);
         token.deposit(depositAmount, from);
         vm.stopPrank();
 
         assertEq(token.chi(), testData.chiMiddle);
         uint256 diff = prevSupply * testData.chiMiddle / RAY - prevSupply * testData.chiFirst / RAY;
-        assertEq(nst.balanceOf(address(token)), testData.nstBalanceToken + diff + depositAmount);
+        assertEq(usds.balanceOf(address(token)), testData.usdsBalanceToken + diff + depositAmount);
 
         vm.warp(block.timestamp + warp2);
 
@@ -773,17 +773,17 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         uint256 shares = _divup(assets * RAY, testData.chiLast);
         assertEq(token.totalSupply(), prevSupply + pie - shares);
         assertEq(token.balanceOf(from), pie - shares);
-        if (from != to) assertEq(nst.balanceOf(from), testData.nstBalanceFrom);
-        assertEq(nst.balanceOf(to), testData.nstBalanceTo + assets);
-        assertEq(nst.balanceOf(address(token)), testData.nstBalanceToken + diff + depositAmount - assets);
+        if (from != to) assertEq(usds.balanceOf(from), testData.usdsBalanceFrom);
+        assertEq(usds.balanceOf(to), testData.usdsBalanceTo + assets);
+        assertEq(usds.balanceOf(address(token)), testData.usdsBalanceToken + diff + depositAmount - assets);
 
         vm.prank(from);
         token.redeem(pie - redeemAmount, to, from);
         assertEq(token.totalSupply(), prevSupply);
         assertEq(token.balanceOf(from), 0);
-        if (from != to) assertEq(nst.balanceOf(from), testData.nstBalanceFrom);
-        assertEq(nst.balanceOf(to), assets + (pie - redeemAmount) * testData.chiLast / RAY);
-        assertEq(nst.balanceOf(address(token)), testData.nstBalanceToken + diff + depositAmount - assets - (pie - redeemAmount) * testData.chiLast / RAY);
+        if (from != to) assertEq(usds.balanceOf(from), testData.usdsBalanceFrom);
+        assertEq(usds.balanceOf(to), assets + (pie - redeemAmount) * testData.chiLast / RAY);
+        assertEq(usds.balanceOf(address(token)), testData.usdsBalanceToken + diff + depositAmount - assets - (pie - redeemAmount) * testData.chiLast / RAY);
     }
 
     function testWithdraw(
@@ -795,7 +795,7 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         uint256 warp2
     ) public {
         vm.assume(from != address(0) && from != address(token) && from != address(0x222));
-        vm.assume(to != address(0) && to != address(token) && to != address(0x222));
+        vm.assume(to != address(0) && to != address(token) && to != address(usds) && to != address(0x222));
         depositAmount = depositAmount % 99 ether + 1 ether;
         withdrawAmount %= 100 ether;
 
@@ -804,12 +804,12 @@ contract SNstIntegrationTest is TokenFuzzChecks {
 
         uint256 prevSupply = token.totalSupply();
         TestData memory testData;
-        testData.nstBalanceToken = nst.balanceOf(address(token));
-        testData.nstBalanceFrom = nst.balanceOf(from);
-        testData.nstBalanceTo = nst.balanceOf(to);
+        testData.usdsBalanceToken = usds.balanceOf(address(token));
+        testData.usdsBalanceFrom = usds.balanceOf(from);
+        testData.usdsBalanceTo = usds.balanceOf(to);
         testData.chiFirst = token.chi();
-        testData.chiMiddle = _rpow(token.nsr(), warp) * testData.chiFirst / RAY;
-        testData.chiLast = _rpow(token.nsr(), warp2) * testData.chiMiddle / RAY;
+        testData.chiMiddle = _rpow(token.ssr(), warp) * testData.chiFirst / RAY;
+        testData.chiLast = _rpow(token.ssr(), warp2) * testData.chiMiddle / RAY;
         assertGe(testData.chiMiddle, testData.chiFirst);
         assertGe(testData.chiLast, testData.chiMiddle);
 
@@ -818,15 +818,15 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         uint256 pie = token.convertToShares(depositAmount);
         withdrawAmount = bound(withdrawAmount, 0, depositAmount);
 
-        deal(address(nst), address(0x222), depositAmount);
+        deal(address(usds), address(0x222), depositAmount);
         vm.startPrank(address(0x222));
-        nst.approve(address(token), depositAmount);
+        usds.approve(address(token), depositAmount);
         token.deposit(depositAmount, from);
         vm.stopPrank();
 
         assertEq(token.chi(), testData.chiMiddle);
         uint256 diff = prevSupply * testData.chiMiddle / RAY - prevSupply * testData.chiFirst / RAY;
-        assertEq(nst.balanceOf(address(token)), testData.nstBalanceToken + diff + depositAmount);
+        assertEq(usds.balanceOf(address(token)), testData.usdsBalanceToken + diff + depositAmount);
 
         vm.warp(block.timestamp + warp2);
 
@@ -844,18 +844,18 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         assertEq(token.chi(), testData.chiLast);
         assertEq(token.totalSupply(), prevSupply + pie - shares);
         assertEq(token.balanceOf(from), pie - shares);
-        if (from != to) assertEq(nst.balanceOf(from), testData.nstBalanceFrom);
-        assertEq(nst.balanceOf(to), testData.nstBalanceTo + withdrawAmount);
-        assertEq(nst.balanceOf(address(token)), testData.nstBalanceToken + diff + depositAmount - withdrawAmount);
+        if (from != to) assertEq(usds.balanceOf(from), testData.usdsBalanceFrom);
+        assertEq(usds.balanceOf(to), testData.usdsBalanceTo + withdrawAmount);
+        assertEq(usds.balanceOf(address(token)), testData.usdsBalanceToken + diff + depositAmount - withdrawAmount);
 
         uint256 rAssets = token.balanceOf(address(from)) * testData.chiLast / RAY;
         vm.prank(address(from));
         token.withdraw(rAssets, to, address(from));
         assertEq(token.totalSupply(), prevSupply);
         assertEq(token.balanceOf(from), 0);
-        if (from != to) assertEq(nst.balanceOf(from), testData.nstBalanceFrom);
-        assertEq(nst.balanceOf(to), testData.nstBalanceTo + withdrawAmount + rAssets);
-        assertEq(nst.balanceOf(address(token)), testData.nstBalanceToken + diff + depositAmount - withdrawAmount - (pie - shares) * testData.chiLast / RAY);
+        if (from != to) assertEq(usds.balanceOf(from), testData.usdsBalanceFrom);
+        assertEq(usds.balanceOf(to), testData.usdsBalanceTo + withdrawAmount + rAssets);
+        assertEq(usds.balanceOf(address(token)), testData.usdsBalanceToken + diff + depositAmount - withdrawAmount - (pie - shares) * testData.chiLast / RAY);
     }
 
     function testRedeemInsufficientBalance(
@@ -863,7 +863,7 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         uint256 mintAmount,
         uint256 burnAmount
     ) public {
-        vm.assume(to != address(0) && to != address(token));
+        vm.assume(to != address(0) && to != address(token) && to != address(usds) && to != address(0x222));
         mintAmount %= 100 ether;
         burnAmount %= 100 ether;
 
@@ -871,7 +871,7 @@ contract SNstIntegrationTest is TokenFuzzChecks {
         burnAmount = bound(burnAmount, pie + 1, type(uint256).max / token.chi());
 
         token.deposit(mintAmount, to);
-        vm.expectRevert("SNst/insufficient-balance");
+        vm.expectRevert("SUsds/insufficient-balance");
         token.redeem(burnAmount, to, to);
     }
 }

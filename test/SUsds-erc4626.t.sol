@@ -21,45 +21,45 @@ import "erc4626-tests/ERC4626.test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { VatMock } from "test/mocks/VatMock.sol";
-import { NstMock } from "test/mocks/NstMock.sol";
-import { NstJoinMock } from "test/mocks/NstJoinMock.sol";
+import { UsdsMock } from "test/mocks/UsdsMock.sol";
+import { UsdsJoinMock } from "test/mocks/UsdsJoinMock.sol";
 
-import { SNst } from "src/SNst.sol";
+import { SUsds } from "src/SUsds.sol";
 
-contract SNstERC4626Test is ERC4626Test {
+contract SUsdsERC4626Test is ERC4626Test {
 
     using stdStorage for StdStorage;
 
     VatMock vat;
-    NstMock nst;
-    NstJoinMock nstJoin;
+    UsdsMock usds;
+    UsdsJoinMock usdsJoin;
 
-    SNst sNst;
+    SUsds sUsds;
 
     uint256 constant private RAY = 10**27;
 
     function setUp() public override {
         vat = new VatMock();
-        nst = new NstMock();
-        nstJoin = new NstJoinMock(address(vat), address(nst));
+        usds = new UsdsMock();
+        usdsJoin = new UsdsJoinMock(address(vat), address(usds));
 
-        nst.rely(address(nstJoin));
-        vat.suck(address(123), address(nstJoin), 100_000_000_000 * 10 ** 45);
+        usds.rely(address(usdsJoin));
+        vat.suck(address(123), address(usdsJoin), 100_000_000_000 * 10 ** 45);
 
-        sNst = SNst(address(new ERC1967Proxy(address(new SNst(address(nstJoin), address(0))), abi.encodeCall(SNst.initialize, ()))));
-        vat.rely(address(sNst));
+        sUsds = SUsds(address(new ERC1967Proxy(address(new SUsds(address(usdsJoin), address(0))), abi.encodeCall(SUsds.initialize, ()))));
+        vat.rely(address(sUsds));
 
-        sNst.file("nsr", 1000000001547125957863212448);
+        sUsds.file("ssr", 1000000001547125957863212448);
 
-        vat.hope(address(nstJoin));
+        vat.hope(address(usdsJoin));
 
         vm.warp(100 days);
-        sNst.drip();
+        sUsds.drip();
 
-        assertGt(sNst.chi(), RAY);
+        assertGt(sUsds.chi(), RAY);
 
-        _underlying_ = address(nst);
-        _vault_ = address(sNst);
+        _underlying_ = address(usds);
+        _vault_ = address(sUsds);
         _delta_ = 0;
         _vaultMayBeEmpty = true;
         _unlimitedAmount = false;
@@ -70,7 +70,7 @@ contract SNstERC4626Test is ERC4626Test {
         for (uint256 i = 0; i < N; i++) {
             init.share[i] %= 1_000_000_000 ether;
             init.asset[i] %= 1_000_000_000 ether;
-            vm.assume(init.user[i] != address(0) && init.user[i] != address(sNst));
+            vm.assume(init.user[i] != address(0) && init.user[i] != address(sUsds));
         }
         super.setUpVault(init);
     }
@@ -81,19 +81,19 @@ contract SNstERC4626Test is ERC4626Test {
         init.yield %= 1_000_000_000 ether;
         uint256 gain = uint256(init.yield);
 
-        uint256 supply = sNst.totalSupply();
+        uint256 supply = sUsds.totalSupply();
         if (supply > 0) {
-            uint256 nChi = gain * RAY / supply + sNst.chi();
+            uint256 nChi = gain * RAY / supply + sUsds.chi();
             uint256 chiRho = (block.timestamp << 192) + nChi;
             vm.store(
-                address(sNst),
+                address(sUsds),
                 bytes32(uint256(5)),
                 bytes32(chiRho)
             );
-            assertEq(uint256(sNst.chi()), nChi);
-            assertEq(uint256(sNst.rho()), block.timestamp);
-            vat.suck(address(sNst.vow()), address(this), gain * RAY);
-            nstJoin.exit(address(sNst), gain);
+            assertEq(uint256(sUsds.chi()), nChi);
+            assertEq(uint256(sUsds.rho()), block.timestamp);
+            vat.suck(address(sUsds.vow()), address(this), gain * RAY);
+            usdsJoin.exit(address(sUsds), gain);
         }
     }
 

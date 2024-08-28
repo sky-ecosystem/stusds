@@ -22,23 +22,23 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 
 import "dss-interfaces/Interfaces.sol";
 
-import { SNst } from "src/SNst.sol";
+import { SUsds } from "src/SUsds.sol";
 
-import { SNstInstance } from "./SNstInstance.sol";
+import { SUsdsInstance } from "./SUsdsInstance.sol";
 
-library SNstDeploy {
+library SUsdsDeploy {
     function deploy(
         address deployer,
         address owner,
-        address nstJoin
-    ) internal returns (SNstInstance memory instance) {
+        address usdsJoin
+    ) internal returns (SUsdsInstance memory instance) {
         ChainlogAbstract chainlog = ChainlogAbstract(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
 
-        address _sNstImp = address(new SNst(nstJoin, chainlog.getAddress("MCD_VOW")));
-        address _sNst = address(new ERC1967Proxy(_sNstImp, abi.encodeCall(SNst.initialize, ())));
-        ScriptTools.switchOwner(_sNst, deployer, owner);
+        address _sUsdsImp = address(new SUsds(usdsJoin, chainlog.getAddress("MCD_VOW")));
+        address _sUsds = address(new ERC1967Proxy(_sUsdsImp, abi.encodeCall(SUsds.initialize, ())));
+        ScriptTools.switchOwner(_sUsds, deployer, owner);
 
-        instance.sNst    = _sNst;
-        instance.sNstImp = _sNstImp;
+        instance.sUsds    = _sUsds;
+        instance.sUsdsImp = _sUsdsImp;
     }
 }
