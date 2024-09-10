@@ -782,7 +782,7 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.totalSupply(), prevSupply);
         assertEq(token.balanceOf(from), 0);
         if (from != to) assertEq(usds.balanceOf(from), testData.usdsBalanceFrom);
-        assertEq(usds.balanceOf(to), assets + (pie - redeemAmount) * testData.chiLast / RAY);
+        assertEq(usds.balanceOf(to), testData.usdsBalanceTo + assets + (pie - redeemAmount) * testData.chiLast / RAY);
         assertEq(usds.balanceOf(address(token)), testData.usdsBalanceToken + diff + depositAmount - assets - (pie - redeemAmount) * testData.chiLast / RAY);
     }
 
