@@ -25,13 +25,13 @@ import { Upgrades, Options } from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import { UsdsMock } from "test/mocks/UsdsMock.sol";
 import { UsdsJoinMock } from "test/mocks/UsdsJoinMock.sol";
 
-import { SUsds, UUPSUpgradeable, Initializable, ERC1967Utils } from "src/SUsds.sol";
+import { YUsds, UUPSUpgradeable, Initializable, ERC1967Utils } from "src/YUsds.sol";
 
-import { SUsdsInstance } from "deploy/SUsdsInstance.sol";
-import { SUsdsDeploy } from "deploy/SUsdsDeploy.sol";
-import { SUsdsInit, SUsdsConfig } from "deploy/SUsdsInit.sol";
+import { YUsdsInstance } from "deploy/YUsdsInstance.sol";
+import { YUsdsDeploy } from "deploy/YUsdsDeploy.sol";
+import { YUsdsInit, YUsdsConfig } from "deploy/YUsdsInit.sol";
 
-contract SUsds2 is UUPSUpgradeable {
+contract YUsds2 is UUPSUpgradeable {
     // Admin
     mapping (address => uint256) public wards;
     // ERC20
@@ -49,7 +49,7 @@ contract SUsds2 is UUPSUpgradeable {
     event UpgradedTo(string version);
 
     modifier auth {
-        require(wards[msg.sender] == 1, "SUsds/not-authorized");
+        require(wards[msg.sender] == 1, "YUsds/not-authorized");
         _;
     }
 
@@ -68,7 +68,7 @@ contract SUsds2 is UUPSUpgradeable {
     }
 }
 
-contract SUsdsIntegrationTest is TokenFuzzChecks {
+contract YUsdsIntegrationTest is TokenFuzzChecks {
 
     using GodMode for *;
 
@@ -77,7 +77,7 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
     UsdsJoinMock usdsJoin;
     UsdsMock usds;
 
-    SUsds token;
+    YUsds token;
     bool validate;
 
     event Drip(uint256 chi, uint256 diff);
@@ -98,16 +98,16 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
         usdsJoin = new UsdsJoinMock(address(dss.vat), address(usds));
         usds.rely(address(usdsJoin));
 
-        SUsdsInstance memory inst = SUsdsDeploy.deploy(address(this), pauseProxy, address(usdsJoin));
-        token = SUsds(inst.sUsds);
-        SUsdsConfig memory conf = SUsdsConfig({
+        YUsdsInstance memory inst = YUsdsDeploy.deploy(address(this), pauseProxy, address(usdsJoin));
+        token = YUsds(inst.yUsds);
+        YUsdsConfig memory conf = YUsdsConfig({
             usdsJoin: address(usdsJoin),
             usds: address(usds),
             ssr: 1000000001547125957863212448
         });
         vm.warp(block.timestamp + 10);
         vm.startPrank(pauseProxy);
-        SUsdsInit.init(dss, inst, conf);
+        YUsdsInit.init(dss, inst, conf);
         vm.stopPrank();
         assertEq(token.chi(), RAY);
         assertEq(token.rho(), block.timestamp);
@@ -115,7 +115,7 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(dss.vat.can(address(token), address(usdsJoin)), 1);
         assertEq(token.wards(pauseProxy), 1);
         assertEq(token.version(), "1");
-        assertEq(token.getImplementation(), inst.sUsdsImp);
+        assertEq(token.getImplementation(), inst.yUsdsImp);
 
         deal(address(usds), address(this), 200 ether);
         usds.approve(address(token), type(uint256).max);
@@ -165,22 +165,22 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
         address proxy = Upgrades.deployUUPSProxy(
-            "out/SUsds.sol/SUsds.json",
-            abi.encodeCall(SUsds.initialize, ()),
+            "out/YUsds.sol/YUsds.json",
+            abi.encodeCall(YUsds.initialize, ()),
             opts
         );
-        assertEq(SUsds(proxy).version(), "1");
-        assertEq(SUsds(proxy).wards(address(this)), 1);
+        assertEq(YUsds(proxy).version(), "1");
+        assertEq(YUsds(proxy).wards(address(this)), 1);
     }
 
     function testUpgrade() public {
         address implementation1 = token.getImplementation();
 
-        address newImpl = address(new SUsds2());
+        address newImpl = address(new YUsds2());
         vm.startPrank(pauseProxy);
         vm.expectEmit(true, true, true, true);
         emit UpgradedTo("2");
-        token.upgradeToAndCall(newImpl, abi.encodeCall(SUsds2.reinitialize, ()));
+        token.upgradeToAndCall(newImpl, abi.encodeCall(YUsds2.reinitialize, ()));
         vm.stopPrank();
 
         address implementation2 = token.getImplementation();
@@ -197,7 +197,7 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
         if (!validate) {
             opts.unsafeSkipAllChecks = true;
         } else {
-            opts.referenceContract = "out/SUsds.sol/SUsds.json";
+            opts.referenceContract = "out/YUsds.sol/YUsds.json";
             opts.unsafeAllow = 'constructor';
         }
 
@@ -206,8 +206,8 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
         emit UpgradedTo("2");
         Upgrades.upgradeProxy(
             address(token),
-            "out/SUsds-integration.t.sol/SUsds2.json",
-            abi.encodeCall(SUsds2.reinitialize, ()),
+            "out/YUsds-integration.t.sol/YUsds2.json",
+            abi.encodeCall(YUsds2.reinitialize, ()),
             opts
         );
         vm.stopPrank();
@@ -219,9 +219,9 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testUpgradeUnauthed() public {
-        address newImpl = address(new SUsds2());
-        vm.expectRevert("SUsds/not-authorized");
-        vm.prank(address(0x123)); token.upgradeToAndCall(newImpl, abi.encodeCall(SUsds2.reinitialize, ()));
+        address newImpl = address(new YUsds2());
+        vm.expectRevert("YUsds/not-authorized");
+        vm.prank(address(0x123)); token.upgradeToAndCall(newImpl, abi.encodeCall(YUsds2.reinitialize, ()));
     }
 
     function testInitializeAgain() public {
@@ -232,16 +232,16 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
     function testInitializeDirectly() public {
         address implementation = token.getImplementation();
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        SUsds(implementation).initialize();
+        YUsds(implementation).initialize();
     }
 
     function testConstructor() public {
-        address imp = address(new SUsds(address(usdsJoin), address(0x111)));
+        address imp = address(new YUsds(address(usdsJoin), address(0x111)));
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
-        SUsds token2 = SUsds(address(new ERC1967Proxy(imp, abi.encodeCall(SUsds.initialize, ()))));
-        assertEq(token2.name(), "Savings USDS");
-        assertEq(token2.symbol(), "sUSDS");
+        YUsds token2 = YUsds(address(new ERC1967Proxy(imp, abi.encodeCall(YUsds.initialize, ()))));
+        assertEq(token2.name(), "Yield USDS");
+        assertEq(token2.symbol(), "yUSDS");
         assertEq(token2.version(), "1");
         assertEq(token2.decimals(), 18);
         assertEq(token2.chi(), RAY);
@@ -257,26 +257,26 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testAuth() public {
-        checkAuth(address(token), "SUsds");
+        checkAuth(address(token), "YUsds");
     }
 
     function testFile() public {
-        checkFileUint(address(token), "SUsds", ["ssr"]);
+        checkFileUint(address(token), "YUsds", ["ssr"]);
 
-        vm.expectRevert("SUsds/wrong-ssr-value");
+        vm.expectRevert("YUsds/wrong-ssr-value");
         vm.prank(pauseProxy); token.file("ssr", RAY - 1);
 
         vm.warp(block.timestamp + 1);
-        vm.expectRevert("SUsds/chi-not-up-to-date");
+        vm.expectRevert("YUsds/chi-not-up-to-date");
         vm.prank(pauseProxy); token.file("ssr", RAY);
     }
 
     function testERC20() public {
-        checkBulkERC20(address(token), "SUsds", "Savings USDS", "sUSDS", "1", 18);
+        checkBulkERC20(address(token), "YUsds", "Yield USDS", "yUSDS", "1", 18);
     }
 
     function testPermit() public {
-        checkBulkPermit(address(token), "SUsds");
+        checkBulkPermit(address(token), "YUsds");
     }
 
     function testConversion() public {
@@ -388,9 +388,9 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testDepositBadAddress() public {
-        vm.expectRevert("SUsds/invalid-address");
+        vm.expectRevert("YUsds/invalid-address");
         token.deposit(1e18, address(0));
-        vm.expectRevert("SUsds/invalid-address");
+        vm.expectRevert("YUsds/invalid-address");
         token.deposit(1e18, address(token));
     }
 
@@ -453,9 +453,9 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testMintBadAddress() public {
-        vm.expectRevert("SUsds/invalid-address");
+        vm.expectRevert("YUsds/invalid-address");
         token.mint(1e18, address(0));
-        vm.expectRevert("SUsds/invalid-address");
+        vm.expectRevert("YUsds/invalid-address");
         token.mint(1e18, address(token));
     }
 
@@ -580,7 +580,7 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
         uint256 amount1,
         uint256 amount2
     ) public {
-        checkBulkERC20Fuzz(address(token), "SUsds", from, to, amount1, amount2);
+        checkBulkERC20Fuzz(address(token), "YUsds", from, to, amount1, amount2);
     }
 
     function testPermitFuzz(
@@ -590,7 +590,7 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
         uint256 deadline,
         uint256 nonce
     ) public {
-        checkBulkPermitFuzz(address(token), "SUsds", privKey, to, amount, deadline, nonce);
+        checkBulkPermitFuzz(address(token), "YUsds", privKey, to, amount, deadline, nonce);
     }
 
     function testDrip(uint256 amount, uint256 warp, uint256 warp2) public {
@@ -662,7 +662,7 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
             assertEq(token.balanceOf(to), shares);
             assertEq(usds.balanceOf(address(token)), ssrUsds + diff + amount);
         } else {
-            vm.expectRevert("SUsds/invalid-address");
+            vm.expectRevert("YUsds/invalid-address");
             token.deposit(amount, to);
         }
     }
@@ -700,7 +700,7 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
             assertEq(token.balanceOf(to), shares);
             assertEq(usds.balanceOf(address(token)), ssrUsds + diff + _divup(shares * chiLast, RAY));
         } else {
-            vm.expectRevert("SUsds/invalid-address");
+            vm.expectRevert("YUsds/invalid-address");
             token.mint(shares, to);
         }
     }
@@ -871,7 +871,7 @@ contract SUsdsIntegrationTest is TokenFuzzChecks {
         burnAmount = bound(burnAmount, pie + 1, type(uint256).max / token.chi());
 
         token.deposit(mintAmount, to);
-        vm.expectRevert("SUsds/insufficient-balance");
+        vm.expectRevert("YUsds/insufficient-balance");
         token.redeem(burnAmount, to, to);
     }
 }

@@ -17,9 +17,9 @@
 pragma solidity >=0.8.0;
 
 import { DssInstance } from "dss-test/MCD.sol";
-import { SUsdsInstance } from "./SUsdsInstance.sol";
+import { YUsdsInstance } from "./YUsdsInstance.sol";
 
-interface SUsdsLike {
+interface YUsdsLike {
     function version() external view returns (string memory);
     function getImplementation() external view returns (address);
     function usdsJoin() external view returns (address);
@@ -34,38 +34,38 @@ interface UsdsJoinLike {
     function usds() external view returns (address);
 }
 
-struct SUsdsConfig {
+struct YUsdsConfig {
     address usdsJoin;
     address usds;
     uint256 ssr;
 }
 
-library SUsdsInit {
+library YUsdsInit {
 
     uint256 constant internal RAY                   = 10**27;
     uint256 constant internal RATES_ONE_HUNDRED_PCT = 1000000021979553151239153027;
 
     function init(
         DssInstance   memory dss,
-        SUsdsInstance memory instance,
-        SUsdsConfig   memory cfg
+        YUsdsInstance memory instance,
+        YUsdsConfig   memory cfg
     ) internal {
-        require(keccak256(abi.encodePacked(SUsdsLike(instance.sUsds).version())) == keccak256(abi.encodePacked("1")), "SUsdsInit/version-does-not-match");
-        require(SUsdsLike(instance.sUsds).getImplementation() == instance.sUsdsImp, "SUsdsInit/imp-does-not-match");
+        require(keccak256(abi.encodePacked(YUsdsLike(instance.yUsds).version())) == keccak256(abi.encodePacked("1")), "YUsdsInit/version-does-not-match");
+        require(YUsdsLike(instance.yUsds).getImplementation() == instance.yUsdsImp, "YUsdsInit/imp-does-not-match");
 
-        require(SUsdsLike(instance.sUsds).vat()      == address(dss.vat), "SUsdsInit/vat-does-not-match");
-        require(SUsdsLike(instance.sUsds).usdsJoin() == cfg.usdsJoin,     "SUsdsInit/usdsJoin-does-not-match");
-        require(SUsdsLike(instance.sUsds).usds()     == cfg.usds,         "SUsdsInit/usds-does-not-match");
-        require(SUsdsLike(instance.sUsds).vow()      == address(dss.vow), "SUsdsInit/vow-does-not-match");
+        require(YUsdsLike(instance.yUsds).vat()      == address(dss.vat), "YUsdsInit/vat-does-not-match");
+        require(YUsdsLike(instance.yUsds).usdsJoin() == cfg.usdsJoin,     "YUsdsInit/usdsJoin-does-not-match");
+        require(YUsdsLike(instance.yUsds).usds()     == cfg.usds,         "YUsdsInit/usds-does-not-match");
+        require(YUsdsLike(instance.yUsds).vow()      == address(dss.vow), "YUsdsInit/vow-does-not-match");
 
-        require(cfg.ssr >= RAY && cfg.ssr <= RATES_ONE_HUNDRED_PCT, "SUsdsInit/ssr-out-of-boundaries");
+        require(cfg.ssr >= RAY && cfg.ssr <= RATES_ONE_HUNDRED_PCT, "YUsdsInit/ssr-out-of-boundaries");
 
-        dss.vat.rely(instance.sUsds);
+        dss.vat.rely(instance.yUsds);
 
-        SUsdsLike(instance.sUsds).drip();
-        SUsdsLike(instance.sUsds).file("ssr", cfg.ssr);
+        YUsdsLike(instance.yUsds).drip();
+        YUsdsLike(instance.yUsds).file("ssr", cfg.ssr);
 
-        dss.chainlog.setAddress("SUSDS",     instance.sUsds);
-        dss.chainlog.setAddress("SUSDS_IMP", instance.sUsdsImp);
+        dss.chainlog.setAddress("YUSDS",     instance.yUsds);
+        dss.chainlog.setAddress("YUSDS_IMP", instance.yUsdsImp);
     }
 }

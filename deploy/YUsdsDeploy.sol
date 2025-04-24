@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Copyright (C) 2024 Dai Foundation
+// Copyright (C) 2021 Dai Foundation
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -20,20 +20,25 @@ pragma solidity ^0.8.21;
 import { ScriptTools } from "dss-test/ScriptTools.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import { SUsds } from "src/l2/SUsds.sol";
+import "dss-interfaces/Interfaces.sol";
 
-import { SUsdsInstance } from "deploy/SUsdsInstance.sol";
+import { YUsds } from "src/YUsds.sol";
 
-library SUsdsDeploy {
+import { YUsdsInstance } from "./YUsdsInstance.sol";
+
+library YUsdsDeploy {
     function deploy(
         address deployer,
-        address owner
-    ) internal returns (SUsdsInstance memory instance) {
-        address _sUsdsImp = address(new SUsds());
-        address _sUsds = address((new ERC1967Proxy(_sUsdsImp, abi.encodeCall(SUsds.initialize, ()))));
-        ScriptTools.switchOwner(_sUsds, deployer, owner);
+        address owner,
+        address usdsJoin
+    ) internal returns (YUsdsInstance memory instance) {
+        ChainlogAbstract chainlog = ChainlogAbstract(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
 
-        instance.sUsds    = _sUsds;
-        instance.sUsdsImp = _sUsdsImp;
+        address _yUsdsImp = address(new YUsds(usdsJoin, chainlog.getAddress("MCD_VOW")));
+        address _yUsds = address(new ERC1967Proxy(_yUsdsImp, abi.encodeCall(YUsds.initialize, ())));
+        ScriptTools.switchOwner(_yUsds, deployer, owner);
+
+        instance.yUsds    = _yUsds;
+        instance.yUsdsImp = _yUsdsImp;
     }
 }

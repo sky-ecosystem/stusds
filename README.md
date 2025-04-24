@@ -1,9 +1,9 @@
-# Savings USDS
+# Yield USDS
 
 A tokenized implementation of a savings rate for USDS. Supports ERC4626. Share to asset conversions are real-time even if `drip` hasn't been called in a while.
 
 The contract uses the ERC-1822 UUPS pattern for upgradeability and the ERC-1967 proxy storage slots standard.
-It is important that the `SUsdsDeploy` library sequence be used for deploying.
+It is important that the `YUsdsDeploy` library sequence be used for deploying.
 
 #### OZ upgradeability validations
 

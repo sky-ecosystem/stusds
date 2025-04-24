@@ -22,13 +22,13 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { VatAbstract, PotAbstract, ChainlogAbstract } from "dss-interfaces/Interfaces.sol";
 import { UsdsMock } from "test/mocks/UsdsMock.sol";
 import { UsdsJoinMock } from "test/mocks/UsdsJoinMock.sol";
-import { SUsds } from "src/SUsds.sol";
+import { YUsds } from "src/YUsds.sol";
 
-contract SUsdsHandler is StdUtils, StdCheats {
+contract YUsdsHandler is StdUtils, StdCheats {
     Vm       public vm;
-    SUsds    public token;
+    YUsds    public token;
     UsdsMock public usds;
-    address  public sUsdsOwner;
+    address  public yUsdsOwner;
     mapping(bytes32 => uint256) public numCalls;
 
     uint256 constant RAY = 10 ** 27;
@@ -37,18 +37,18 @@ contract SUsdsHandler is StdUtils, StdCheats {
         Vm      vm_,
         address token_,
         address usds_,
-        address sUsdsOwner_
+        address yUsdsOwner_
     ) {
         vm     = vm_;
-        token  = SUsds(token_);
+        token  = YUsds(token_);
         usds   = UsdsMock(usds_);
-        sUsdsOwner = sUsdsOwner_;
+        yUsdsOwner = yUsdsOwner_;
     }
 
     function setSsr(uint256 ssr) external {
         numCalls["setSsr"]++;
         ssr = bound(ssr, RAY, 1000000021979553151239153027); // between 0% and 100% apy
-        vm.prank(sUsdsOwner); token.file("ssr", ssr);
+        vm.prank(yUsdsOwner); token.file("ssr", ssr);
     }
 
     function warp(uint256 secs) external {
@@ -99,13 +99,13 @@ contract SUsdsHandler is StdUtils, StdCheats {
     }
 }
 
-contract SUsdsInvariantsTest is DssTest {
+contract YUsdsInvariantsTest is DssTest {
     VatAbstract  vat;
     UsdsJoinMock usdsJoin;
     UsdsMock     usds;
     PotAbstract  pot;
-    SUsds        token;
-    SUsdsHandler handler;
+    YUsds        token;
+    YUsdsHandler handler;
 
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
@@ -117,23 +117,23 @@ contract SUsdsInvariantsTest is DssTest {
         usdsJoin = new UsdsJoinMock(address(vat), address(usds));
         usds.rely(address(usdsJoin));
 
-        token = SUsds(address(new ERC1967Proxy(address(new SUsds(address(usdsJoin), address(123))), abi.encodeCall(SUsds.initialize, ()))));
+        token = YUsds(address(new ERC1967Proxy(address(new YUsds(address(usdsJoin), address(123))), abi.encodeCall(YUsds.initialize, ()))));
 
         vm.prank(chainlog.getAddress("MCD_PAUSE_PROXY")); vat.rely(address(token));
 
-        handler = new SUsdsHandler(vm, address(token), address(usds), address(this));
+        handler = new YUsdsHandler(vm, address(token), address(usds), address(this));
 
          // uncomment and fill to only call specific functions
         bytes4[] memory selectors = new bytes4[](9);
-        selectors[0] = SUsdsHandler.setSsr.selector;
-        selectors[1] = SUsdsHandler.warp.selector;
-        selectors[2] = SUsdsHandler.drip.selector;
-        selectors[3] = SUsdsHandler.deposit.selector;
-        selectors[4] = SUsdsHandler.mint.selector;
-        selectors[5] = SUsdsHandler.withdraw.selector;
-        selectors[6] = SUsdsHandler.withdrawAll.selector;
-        selectors[7] = SUsdsHandler.redeem.selector;
-        selectors[8] = SUsdsHandler.redeemAll.selector;
+        selectors[0] = YUsdsHandler.setSsr.selector;
+        selectors[1] = YUsdsHandler.warp.selector;
+        selectors[2] = YUsdsHandler.drip.selector;
+        selectors[3] = YUsdsHandler.deposit.selector;
+        selectors[4] = YUsdsHandler.mint.selector;
+        selectors[5] = YUsdsHandler.withdraw.selector;
+        selectors[6] = YUsdsHandler.withdrawAll.selector;
+        selectors[7] = YUsdsHandler.redeem.selector;
+        selectors[8] = YUsdsHandler.redeemAll.selector;
 
         targetSelector(FuzzSelector({
             addr: address(handler),

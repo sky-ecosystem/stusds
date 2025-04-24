@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// SUsds.sol
+/// YUsds.sol
 
 // Copyright (C) 2017, 2018, 2019 dbrock, rain, mrchico
 // Copyright (C) 2021 Dai Foundation
@@ -45,7 +45,7 @@ interface UsdsLike {
     function transferFrom(address, address, uint256) external;
 }
 
-contract SUsds is UUPSUpgradeable {
+contract YUsds is UUPSUpgradeable {
 
     // --- Storage Variables ---
 
@@ -64,8 +64,8 @@ contract SUsds is UUPSUpgradeable {
     // --- Constants ---
 
     // ERC20
-    string  public constant name     = "Savings USDS";
-    string  public constant symbol   = "sUSDS";
+    string  public constant name     = "Yield USDS";
+    string  public constant symbol   = "yUSDS";
     string  public constant version  = "1";
     uint8   public constant decimals = 18;
     // Math
@@ -101,7 +101,7 @@ contract SUsds is UUPSUpgradeable {
     // --- Modifiers ---
 
     modifier auth {
-        require(wards[msg.sender] == 1, "SUsds/not-authorized");
+        require(wards[msg.sender] == 1, "YUsds/not-authorized");
         _;
     }
 
@@ -202,10 +202,10 @@ contract SUsds is UUPSUpgradeable {
 
     function file(bytes32 what, uint256 data) external auth {
         if (what == "ssr") {
-            require(data >= RAY, "SUsds/wrong-ssr-value");
-            require(rho == block.timestamp, "SUsds/chi-not-up-to-date");
+            require(data >= RAY, "YUsds/wrong-ssr-value");
+            require(rho == block.timestamp, "YUsds/chi-not-up-to-date");
             ssr = data;
-        } else revert("SUsds/file-unrecognized-param");
+        } else revert("YUsds/file-unrecognized-param");
         emit File(what, data);
     }
 
@@ -231,9 +231,9 @@ contract SUsds is UUPSUpgradeable {
     // --- ERC20 Mutations ---
 
     function transfer(address to, uint256 value) external returns (bool) {
-        require(to != address(0) && to != address(this), "SUsds/invalid-address");
+        require(to != address(0) && to != address(this), "YUsds/invalid-address");
         uint256 balance = balanceOf[msg.sender];
-        require(balance >= value, "SUsds/insufficient-balance");
+        require(balance >= value, "YUsds/insufficient-balance");
 
         unchecked {
             balanceOf[msg.sender] = balance - value;
@@ -246,14 +246,14 @@ contract SUsds is UUPSUpgradeable {
     }
 
     function transferFrom(address from, address to, uint256 value) external returns (bool) {
-        require(to != address(0) && to != address(this), "SUsds/invalid-address");
+        require(to != address(0) && to != address(this), "YUsds/invalid-address");
         uint256 balance = balanceOf[from];
-        require(balance >= value, "SUsds/insufficient-balance");
+        require(balance >= value, "YUsds/insufficient-balance");
 
         if (from != msg.sender) {
             uint256 allowed = allowance[from][msg.sender];
             if (allowed != type(uint256).max) {
-                require(allowed >= value, "SUsds/insufficient-allowance");
+                require(allowed >= value, "YUsds/insufficient-allowance");
 
                 unchecked {
                     allowance[from][msg.sender] = allowed - value;
@@ -282,7 +282,7 @@ contract SUsds is UUPSUpgradeable {
     // --- Mint/Burn Internal ---
 
     function _mint(uint256 assets, uint256 shares, address receiver) internal {
-        require(receiver != address(0) && receiver != address(this), "SUsds/invalid-address");
+        require(receiver != address(0) && receiver != address(this), "YUsds/invalid-address");
 
         usds.transferFrom(msg.sender, address(this), assets);
 
@@ -297,12 +297,12 @@ contract SUsds is UUPSUpgradeable {
 
     function _burn(uint256 assets, uint256 shares, address receiver, address owner) internal {
         uint256 balance = balanceOf[owner];
-        require(balance >= shares, "SUsds/insufficient-balance");
+        require(balance >= shares, "YUsds/insufficient-balance");
 
         if (owner != msg.sender) {
             uint256 allowed = allowance[owner][msg.sender];
             if (allowed != type(uint256).max) {
-                require(allowed >= shares, "SUsds/insufficient-allowance");
+                require(allowed >= shares, "YUsds/insufficient-allowance");
 
                 unchecked {
                     allowance[owner][msg.sender] = allowed - shares;
@@ -443,8 +443,8 @@ contract SUsds is UUPSUpgradeable {
         uint256 deadline,
         bytes memory signature
     ) public {
-        require(block.timestamp <= deadline, "SUsds/permit-expired");
-        require(owner != address(0), "SUsds/invalid-owner");
+        require(block.timestamp <= deadline, "YUsds/permit-expired");
+        require(owner != address(0), "YUsds/invalid-owner");
 
         uint256 nonce;
         unchecked { nonce = nonces[owner]++; }
@@ -463,7 +463,7 @@ contract SUsds is UUPSUpgradeable {
                 ))
             ));
 
-        require(_isValidSignature(owner, digest, signature), "SUsds/invalid-permit");
+        require(_isValidSignature(owner, digest, signature), "YUsds/invalid-permit");
 
         allowance[owner][spender] = value;
         emit Approval(owner, spender, value);
