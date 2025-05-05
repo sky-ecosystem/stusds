@@ -22,14 +22,16 @@ import "dss-interfaces/Interfaces.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Upgrades, Options } from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
-import { UsdsMock } from "test/mocks/UsdsMock.sol";
-import { UsdsJoinMock } from "test/mocks/UsdsJoinMock.sol";
-
 import { YUsds, UUPSUpgradeable, Initializable, ERC1967Utils } from "src/YUsds.sol";
 
 import { YUsdsInstance } from "deploy/YUsdsInstance.sol";
 import { YUsdsDeploy } from "deploy/YUsdsDeploy.sol";
 import { YUsdsInit, YUsdsConfig } from "deploy/YUsdsInit.sol";
+
+interface UsdsLike {
+    function balanceOf(address) external view returns (uint256);
+    function approve(address, uint256) external;
+}
 
 contract YUsds2 is UUPSUpgradeable {
     // Admin
@@ -72,10 +74,12 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
     using GodMode for *;
 
+    ChainlogAbstract LOG;
+
     DssInstance dss;
     address pauseProxy;
-    UsdsJoinMock usdsJoin;
-    UsdsMock usds;
+    address usdsJoin;
+    UsdsLike usds;
 
     YUsds token;
     bool validate;
@@ -90,18 +94,17 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
         validate = vm.envOr("VALIDATE", false);
 
-        ChainlogAbstract LOG = ChainlogAbstract(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
+        LOG = ChainlogAbstract(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
         dss = MCD.loadFromChainlog(LOG);
         
         pauseProxy = LOG.getAddress("MCD_PAUSE_PROXY");
-        usds = new UsdsMock();
-        usdsJoin = new UsdsJoinMock(address(dss.vat), address(usds));
-        usds.rely(address(usdsJoin));
+        usds = UsdsLike(LOG.getAddress("USDS"));
+        usdsJoin = LOG.getAddress("USDS_JOIN");
 
-        YUsdsInstance memory inst = YUsdsDeploy.deploy(address(this), pauseProxy, address(usdsJoin));
+        YUsdsInstance memory inst = YUsdsDeploy.deploy(address(this), pauseProxy);
         token = YUsds(inst.yUsds);
         YUsdsConfig memory conf = YUsdsConfig({
-            usdsJoin: address(usdsJoin),
+            usdsJoin: usdsJoin,
             usds: address(usds),
             ssr: 1000000001547125957863212448
         });
@@ -112,7 +115,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.chi(), RAY);
         assertEq(token.rho(), block.timestamp);
         assertEq(token.ssr(), 1000000001547125957863212448);
-        assertEq(dss.vat.can(address(token), address(usdsJoin)), 1);
+        assertEq(dss.vat.can(address(token), usdsJoin), 1);
         assertEq(token.wards(pauseProxy), 1);
         assertEq(token.version(), "1");
         assertEq(token.getImplementation(), inst.yUsdsImp);
@@ -160,7 +163,13 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         } else {
             opts.unsafeAllow = 'state-variable-immutable,constructor';
         }
-        opts.constructorData = abi.encode(address(usdsJoin), address(0x111));
+        opts.constructorData = abi.encode(
+                                    usdsJoin,
+                                    LOG.getAddress("MCD_JUG"),
+                                    LOG.getAddress("MCD_DOG"),
+                                    LOG.getAddress("MCD_VOW"),
+                                    "LSEV2-SKY-A"
+                                    );
 
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
@@ -236,7 +245,14 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testConstructor() public {
-        address imp = address(new YUsds(address(usdsJoin), address(0x111)));
+        address imp = address(new YUsds(
+                                    usdsJoin,
+                                    LOG.getAddress("MCD_JUG"),
+                                    LOG.getAddress("MCD_DOG"),
+                                    LOG.getAddress("MCD_VOW"),
+                                    "LSEV2-SKY-A"
+                                    )
+                                );
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
         YUsds token2 = YUsds(address(new ERC1967Proxy(imp, abi.encodeCall(YUsds.initialize, ()))));
@@ -247,12 +263,15 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token2.chi(), RAY);
         assertEq(token2.rho(), block.timestamp);
         assertEq(token2.ssr(), RAY);
-        assertEq(dss.vat.can(address(token2), address(usdsJoin)), 1);
+        assertEq(dss.vat.can(address(token2), usdsJoin), 1);
         assertEq(token2.wards(address(this)), 1);
-        assertEq(address(token2.usdsJoin()), address(usdsJoin));
+        assertEq(address(token2.usdsJoin()), usdsJoin);
         assertEq(address(token2.vat()), address(dss.vat));
         assertEq(address(token2.usds()), address(usds));
-        assertEq(address(token2.vow()), address(0x111));
+        assertEq(address(token2.jug()), LOG.getAddress("MCD_JUG"));
+        assertEq(address(token2.dog()), LOG.getAddress("MCD_DOG"));
+        assertEq(address(token2.vow()), LOG.getAddress("MCD_VOW"));
+        assertEq(token2.ilk(),"LSEV2-SKY-A");
         assertEq(address(token2.asset()), address(usds));
     }
 

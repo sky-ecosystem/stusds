@@ -30,8 +30,18 @@ interface IERC1271 {
 }
 
 interface VatLike {
+    function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
+    function file(bytes32, bytes32, uint256) external;
     function hope(address) external;
     function suck(address, address, uint256) external;
+}
+
+interface JugLike {
+    function drip(bytes32) external returns (uint256);
+}
+
+interface DogLike {
+    function ilks(bytes32) external view returns (address, uint256, uint256, uint256);
 }
 
 interface UsdsJoinLike {
@@ -78,8 +88,11 @@ contract YUsds is UUPSUpgradeable {
     // Savings yield
     UsdsJoinLike public immutable usdsJoin;
     VatLike      public immutable vat;
+    JugLike      public immutable jug;
+    DogLike      public immutable dog;
     UsdsLike     public immutable usds;
     address      public immutable vow;
+    bytes32      public immutable ilk;
 
     // --- Events ---
 
@@ -107,13 +120,16 @@ contract YUsds is UUPSUpgradeable {
 
     // --- Constructor ---
 
-    constructor(address usdsJoin_, address vow_) {
+    constructor(address usdsJoin_, address jug_, address dog_, address vow_, bytes32 ilk_) {
         _disableInitializers(); // Avoid initializing in the context of the implementation
 
         usdsJoin = UsdsJoinLike(usdsJoin_);
         vat = VatLike(UsdsJoinLike(usdsJoin_).vat());
+        jug = JugLike(jug_);
+        dog = DogLike(dog_);
         usds = UsdsLike(UsdsJoinLike(usdsJoin_).usds());
         vow = vow_;
+        ilk = ilk_;
     }
 
     // --- Upgradability ---
@@ -291,6 +307,8 @@ contract YUsds is UUPSUpgradeable {
             totalSupply = totalSupply + shares; // note: we don't need an overflow check here b/c shares totalSupply will always be <= usds totalSupply
         }
 
+        vat.file(ilk, "line", totalSupply * chi);
+
         emit Deposit(msg.sender, receiver, assets, shares);
         emit Transfer(address(0), receiver, shares);
     }
@@ -298,6 +316,11 @@ contract YUsds is UUPSUpgradeable {
     function _burn(uint256 assets, uint256 shares, address receiver, address owner) internal {
         uint256 balance = balanceOf[owner];
         require(balance >= shares, "YUsds/insufficient-balance");
+
+        uint256 rate = jug.drip(ilk);
+        (uint256 Art,,,,) = vat.ilks(ilk);
+        (,,, uint256 dirt) = dog.ilks(ilk);
+        require((Art * rate + dirt) + assets * RAY <= totalSupply * chi, "YUsds/insufficient-unused-funds");
 
         if (owner != msg.sender) {
             uint256 allowed = allowance[owner][msg.sender];
@@ -314,6 +337,8 @@ contract YUsds is UUPSUpgradeable {
             balanceOf[owner] = balance - shares; // note: we don't need overflow checks b/c require(balance >= shares) and balance <= totalSupply
             totalSupply      = totalSupply - shares;
         }
+
+        vat.file(ilk, "line", totalSupply * chi);
 
         usds.transfer(receiver, assets);
 
