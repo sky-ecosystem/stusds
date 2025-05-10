@@ -24,7 +24,8 @@ interface YUsdsLike {
     function getImplementation() external view returns (address);
     function usdsJoin() external view returns (address);
     function vat() external view returns (address);
-    function usds() external view returns (address);
+    function jug() external view returns (address);
+    function clip() external view returns (address);
     function vow() external view returns (address);
     function file(bytes32, uint256) external;
     function drip() external returns (uint256);
@@ -35,8 +36,7 @@ interface UsdsJoinLike {
 }
 
 struct YUsdsConfig {
-    address usdsJoin;
-    address usds;
+    address clip;
     uint256 ssr;
 }
 
@@ -53,10 +53,11 @@ library YUsdsInit {
         require(keccak256(abi.encodePacked(YUsdsLike(instance.yUsds).version())) == keccak256(abi.encodePacked("1")), "YUsdsInit/version-does-not-match");
         require(YUsdsLike(instance.yUsds).getImplementation() == instance.yUsdsImp, "YUsdsInit/imp-does-not-match");
 
-        require(YUsdsLike(instance.yUsds).vat()      == address(dss.vat), "YUsdsInit/vat-does-not-match");
-        require(YUsdsLike(instance.yUsds).usdsJoin() == cfg.usdsJoin,     "YUsdsInit/usdsJoin-does-not-match");
-        require(YUsdsLike(instance.yUsds).usds()     == cfg.usds,         "YUsdsInit/usds-does-not-match");
-        require(YUsdsLike(instance.yUsds).vow()      == address(dss.vow), "YUsdsInit/vow-does-not-match");
+        require(YUsdsLike(instance.yUsds).vat()      == address(dss.vat),                     "YUsdsInit/vat-does-not-match");
+        require(YUsdsLike(instance.yUsds).jug()      == address(dss.jug),                     "YUsdsInit/jug-does-not-match");
+        require(YUsdsLike(instance.yUsds).usdsJoin() == dss.chainlog.getAddress("USDS_JOIN"), "YUsdsInit/usdsJoin-does-not-match");
+        require(YUsdsLike(instance.yUsds).clip()     == cfg.clip,                             "YUsdsInit/usdsJoin-does-not-match");
+        require(YUsdsLike(instance.yUsds).vow()      == address(dss.vow),                     "YUsdsInit/vow-does-not-match");
 
         require(cfg.ssr >= RAY && cfg.ssr <= RATES_ONE_HUNDRED_PCT, "YUsdsInit/ssr-out-of-boundaries");
 

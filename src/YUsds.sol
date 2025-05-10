@@ -40,17 +40,20 @@ interface JugLike {
     function drip(bytes32) external returns (uint256);
 }
 
-interface DogLike {
-    function ilks(bytes32) external view returns (address, uint256, uint256, uint256);
+interface ClipLike {
+    function ilk() external view returns (bytes32);
+    function Due() external view returns (uint256);
 }
 
 interface UsdsJoinLike {
     function vat() external view returns (address);
     function usds() external view returns (address);
+    function join(address, uint256) external;
     function exit(address, uint256) external;
 }
 
 interface UsdsLike {
+    function approve(address, uint256) external;
     function transfer(address, uint256) external;
     function transferFrom(address, address, uint256) external;
 }
@@ -89,7 +92,7 @@ contract YUsds is UUPSUpgradeable {
     UsdsJoinLike public immutable usdsJoin;
     VatLike      public immutable vat;
     JugLike      public immutable jug;
-    DogLike      public immutable dog;
+    ClipLike     public immutable clip;
     UsdsLike     public immutable usds;
     address      public immutable vow;
     bytes32      public immutable ilk;
@@ -100,6 +103,7 @@ contract YUsds is UUPSUpgradeable {
     event Rely(address indexed usr);
     event Deny(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
+    event Cut(uint256 assets, uint256 oldChi, uint256 newChi);
     // ERC20
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Transfer(address indexed from, address indexed to, uint256 value);
@@ -120,16 +124,16 @@ contract YUsds is UUPSUpgradeable {
 
     // --- Constructor ---
 
-    constructor(address usdsJoin_, address jug_, address dog_, address vow_, bytes32 ilk_) {
+    constructor(address usdsJoin_, address jug_, address clip_, address vow_) {
         _disableInitializers(); // Avoid initializing in the context of the implementation
 
         usdsJoin = UsdsJoinLike(usdsJoin_);
         vat = VatLike(UsdsJoinLike(usdsJoin_).vat());
         jug = JugLike(jug_);
-        dog = DogLike(dog_);
+        clip = ClipLike(clip_);
         usds = UsdsLike(UsdsJoinLike(usdsJoin_).usds());
         vow = vow_;
-        ilk = ilk_;
+        ilk = clip.ilk();
     }
 
     // --- Upgradability ---
@@ -141,6 +145,7 @@ contract YUsds is UUPSUpgradeable {
         rho = uint64(block.timestamp);
         ssr = RAY;
         vat.hope(address(usdsJoin));
+        usds.approve(vow, type(uint256).max);
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
@@ -225,6 +230,15 @@ contract YUsds is UUPSUpgradeable {
         emit File(what, data);
     }
 
+    function cut(uint256 rad) external auth {
+        uint256 assets = _divup(rad, RAY);
+        uint256 oldChi = drip();
+        uint256 prevTotalAssets = convertToAssets(totalSupply);
+        uint256 newChi = chi = uint192(oldChi * (prevTotalAssets - assets) / prevTotalAssets); // safe as newChi < oldChi;
+        usdsJoin.join(vow, assets);
+        emit Cut(assets, oldChi, newChi);
+    }
+
     // --- Savings Rate Accumulation external/internal function ---
 
     function drip() public returns (uint256 nChi) {
@@ -234,7 +248,7 @@ contract YUsds is UUPSUpgradeable {
             nChi = _rpow(ssr, block.timestamp - rho_) * chi_ / RAY;
             uint256 totalSupply_ = totalSupply;
             diff = totalSupply_ * nChi / RAY - totalSupply_ * chi_ / RAY;
-            vat.suck(address(vow), address(this), diff * RAY);
+            vat.suck(vow, address(this), diff * RAY);
             usdsJoin.exit(address(this), diff);
             chi = uint192(nChi); // safe as nChi is limited to maxUint256/RAY (which is < maxUint192)
             rho = uint64(block.timestamp);
@@ -307,7 +321,7 @@ contract YUsds is UUPSUpgradeable {
             totalSupply = totalSupply + shares; // note: we don't need an overflow check here b/c shares totalSupply will always be <= usds totalSupply
         }
 
-        vat.file(ilk, "line", totalSupply * chi);
+        vat.file(ilk, "line", totalSupply * chi - clip.Due());
 
         emit Deposit(msg.sender, receiver, assets, shares);
         emit Transfer(address(0), receiver, shares);
@@ -319,8 +333,7 @@ contract YUsds is UUPSUpgradeable {
 
         uint256 rate = jug.drip(ilk);
         (uint256 Art,,,,) = vat.ilks(ilk);
-        (,,, uint256 dirt) = dog.ilks(ilk);
-        require((Art * rate + dirt) + assets * RAY <= totalSupply * chi, "YUsds/insufficient-unused-funds");
+        require(Art * rate + clip.Due() + assets * RAY <= totalSupply * chi, "YUsds/insufficient-unused-funds");
 
         if (owner != msg.sender) {
             uint256 allowed = allowance[owner][msg.sender];
@@ -338,7 +351,7 @@ contract YUsds is UUPSUpgradeable {
             totalSupply      = totalSupply - shares;
         }
 
-        vat.file(ilk, "line", totalSupply * chi);
+        vat.file(ilk, "line", totalSupply * chi - clip.Due());
 
         usds.transfer(receiver, assets);
 
@@ -404,10 +417,12 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function maxWithdraw(address owner) external view returns (uint256) {
+        // TODO: add unutilized funds restriction?
         return convertToAssets(balanceOf[owner]);
     }
 
     function previewWithdraw(uint256 assets) external view returns (uint256) {
+        // TODO: add unutilized funds restriction?
         uint256 chi_ = (block.timestamp > rho) ? _rpow(ssr, block.timestamp - rho) * chi / RAY : chi;
         return _divup(assets * RAY, chi_);
     }
@@ -418,10 +433,12 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function maxRedeem(address owner) external view returns (uint256) {
+        // TODO: add unutilized funds restriction?
         return balanceOf[owner];
     }
 
     function previewRedeem(uint256 shares) external view returns (uint256) {
+        // TODO: add unutilized funds restriction?
         return convertToAssets(shares);
     }
 

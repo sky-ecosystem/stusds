@@ -29,16 +29,16 @@ import { YUsdsInstance } from "./YUsdsInstance.sol";
 library YUsdsDeploy {
     function deploy(
         address deployer,
-        address owner
+        address owner,
+        address clip
     ) internal returns (YUsdsInstance memory instance) {
         ChainlogAbstract chainlog = ChainlogAbstract(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
 
         address _yUsdsImp = address(new YUsds(
                                             chainlog.getAddress("USDS_JOIN"),
                                             chainlog.getAddress("MCD_JUG"),
-                                            chainlog.getAddress("MCD_DOG"),
-                                            chainlog.getAddress("MCD_VOW"),
-                                            "LSEV2-SKY-A"
+                                            clip,
+                                            chainlog.getAddress("MCD_VOW")
                                         )
                                     );
         address _yUsds = address(new ERC1967Proxy(_yUsdsImp, abi.encodeCall(YUsds.initialize, ())));

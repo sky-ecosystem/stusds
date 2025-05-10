@@ -28,6 +28,8 @@ import { YUsdsInstance } from "deploy/YUsdsInstance.sol";
 import { YUsdsDeploy } from "deploy/YUsdsDeploy.sol";
 import { YUsdsInit, YUsdsConfig } from "deploy/YUsdsInit.sol";
 
+import { ClipMock } from "test/mocks/ClipMock.sol";
+
 interface UsdsLike {
     function balanceOf(address) external view returns (uint256);
     function approve(address, uint256) external;
@@ -101,11 +103,11 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         usds = UsdsLike(LOG.getAddress("USDS"));
         usdsJoin = LOG.getAddress("USDS_JOIN");
 
-        YUsdsInstance memory inst = YUsdsDeploy.deploy(address(this), pauseProxy);
+        address clip = address(new ClipMock("LSEV2-SKY-A"));
+        YUsdsInstance memory inst = YUsdsDeploy.deploy(address(this), pauseProxy, clip);
         token = YUsds(inst.yUsds);
         YUsdsConfig memory conf = YUsdsConfig({
-            usdsJoin: usdsJoin,
-            usds: address(usds),
+            clip: clip,
             ssr: 1000000001547125957863212448
         });
         vm.warp(block.timestamp + 10);
@@ -157,6 +159,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testDeployWithUpgradesLib() public {
+        address clip = address(new ClipMock("LSEV2-SKY-A"));
         Options memory opts;
         if (!validate) {
             opts.unsafeSkipAllChecks = true;
@@ -166,9 +169,8 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         opts.constructorData = abi.encode(
                                     usdsJoin,
                                     LOG.getAddress("MCD_JUG"),
-                                    LOG.getAddress("MCD_DOG"),
-                                    LOG.getAddress("MCD_VOW"),
-                                    "LSEV2-SKY-A"
+                                    clip,
+                                    LOG.getAddress("MCD_VOW")
                                     );
 
         vm.expectEmit(true, true, true, true);
@@ -245,12 +247,12 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testConstructor() public {
+        address clip = address(new ClipMock("LSEV2-SKY-A"));
         address imp = address(new YUsds(
                                     usdsJoin,
                                     LOG.getAddress("MCD_JUG"),
-                                    LOG.getAddress("MCD_DOG"),
-                                    LOG.getAddress("MCD_VOW"),
-                                    "LSEV2-SKY-A"
+                                    clip,
+                                    LOG.getAddress("MCD_VOW")
                                     )
                                 );
         vm.expectEmit(true, true, true, true);
@@ -269,9 +271,9 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(address(token2.vat()), address(dss.vat));
         assertEq(address(token2.usds()), address(usds));
         assertEq(address(token2.jug()), LOG.getAddress("MCD_JUG"));
-        assertEq(address(token2.dog()), LOG.getAddress("MCD_DOG"));
+        assertEq(address(token2.clip()), clip);
         assertEq(address(token2.vow()), LOG.getAddress("MCD_VOW"));
-        assertEq(token2.ilk(),"LSEV2-SKY-A");
+        assertEq(token2.ilk(), "LSEV2-SKY-A");
         assertEq(address(token2.asset()), address(usds));
     }
 
