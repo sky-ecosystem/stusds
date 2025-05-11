@@ -45,10 +45,10 @@ contract YUsdsHandler is StdUtils, StdCheats {
         yUsdsOwner = yUsdsOwner_;
     }
 
-    function setSsr(uint256 ssr) external {
-        numCalls["setSsr"]++;
-        ssr = bound(ssr, RAY, 1000000021979553151239153027); // between 0% and 100% apy
-        vm.prank(yUsdsOwner); token.file("ssr", ssr);
+    function setSyr(uint256 syr) external {
+        numCalls["setSyr"]++;
+        syr = bound(syr, RAY, 1000000021979553151239153027); // between 0% and 100% apy
+        vm.prank(yUsdsOwner); token.file("syr", syr);
     }
 
     function warp(uint256 secs) external {
@@ -125,7 +125,7 @@ contract YUsdsInvariantsTest is DssTest {
 
          // uncomment and fill to only call specific functions
         bytes4[] memory selectors = new bytes4[](9);
-        selectors[0] = YUsdsHandler.setSsr.selector;
+        selectors[0] = YUsdsHandler.setSyr.selector;
         selectors[1] = YUsdsHandler.warp.selector;
         selectors[2] = YUsdsHandler.drip.selector;
         selectors[3] = YUsdsHandler.deposit.selector;
@@ -144,7 +144,7 @@ contract YUsdsInvariantsTest is DssTest {
     }
 
     function invariant_usds_balance_vs_redeemable() external view {
-        // for only setSsr, warp, drip
+        // for only setSyr, warp, drip
         // assertEq(usds.balanceOf(address(token)), token.totalSupply() * token.chi() / RAY);
 
         // for everything
@@ -155,7 +155,7 @@ contract YUsdsInvariantsTest is DssTest {
         console.log("------------------");
 
         console.log("\nCall Summary\n");
-        console.log("setSsr", handler.numCalls("setSsr"));
+        console.log("setSyr", handler.numCalls("setSyr"));
         console.log("warp", handler.numCalls("warp"));
         console.log("drip", handler.numCalls("drip"));
         console.log("deposit", handler.numCalls("deposit"));

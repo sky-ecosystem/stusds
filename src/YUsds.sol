@@ -59,7 +59,7 @@ contract YUsds is UUPSUpgradeable {
     // Savings yield
     uint192 public chi;   // The Rate Accumulator  [ray]
     uint64  public rho;   // Time of last drip     [unix epoch time]
-    uint256 public ssr;   // The USDS Savings Rate [ray]
+    uint256 public syr;   // The USDS Savings Rate [ray]
 
     // --- Constants ---
 
@@ -123,7 +123,7 @@ contract YUsds is UUPSUpgradeable {
 
         chi = uint192(RAY);
         rho = uint64(block.timestamp);
-        ssr = RAY;
+        syr = RAY;
         vat.hope(address(usdsJoin));
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -201,10 +201,10 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "ssr") {
-            require(data >= RAY, "YUsds/wrong-ssr-value");
+        if (what == "syr") {
+            require(data >= RAY, "YUsds/wrong-syr-value");
             require(rho == block.timestamp, "YUsds/chi-not-up-to-date");
-            ssr = data;
+            syr = data;
         } else revert("YUsds/file-unrecognized-param");
         emit File(what, data);
     }
@@ -215,7 +215,7 @@ contract YUsds is UUPSUpgradeable {
         (uint256 chi_, uint256 rho_) = (chi, rho);
         uint256 diff;
         if (block.timestamp > rho_) {
-            nChi = _rpow(ssr, block.timestamp - rho_) * chi_ / RAY;
+            nChi = _rpow(syr, block.timestamp - rho_) * chi_ / RAY;
             uint256 totalSupply_ = totalSupply;
             diff = totalSupply_ * nChi / RAY - totalSupply_ * chi_ / RAY;
             vat.suck(address(vow), address(this), diff * RAY);
@@ -332,12 +332,12 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function convertToShares(uint256 assets) public view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ssr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
         return assets * RAY / chi_;
     }
 
     function convertToAssets(uint256 shares) public view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ssr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
         return shares * chi_ / RAY;
     }
 
@@ -364,7 +364,7 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function previewMint(uint256 shares) external view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ssr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
         return _divup(shares * chi_, RAY);
     }
 
@@ -383,7 +383,7 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function previewWithdraw(uint256 assets) external view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ssr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
         return _divup(assets * RAY, chi_);
     }
 

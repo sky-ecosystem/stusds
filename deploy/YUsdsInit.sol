@@ -37,7 +37,7 @@ interface UsdsJoinLike {
 struct YUsdsConfig {
     address usdsJoin;
     address usds;
-    uint256 ssr;
+    uint256 syr;
 }
 
 library YUsdsInit {
@@ -58,12 +58,12 @@ library YUsdsInit {
         require(YUsdsLike(instance.yUsds).usds()     == cfg.usds,         "YUsdsInit/usds-does-not-match");
         require(YUsdsLike(instance.yUsds).vow()      == address(dss.vow), "YUsdsInit/vow-does-not-match");
 
-        require(cfg.ssr >= RAY && cfg.ssr <= RATES_ONE_HUNDRED_PCT, "YUsdsInit/ssr-out-of-boundaries");
+        require(cfg.syr >= RAY && cfg.syr <= RATES_ONE_HUNDRED_PCT, "YUsdsInit/syr-out-of-boundaries");
 
         dss.vat.rely(instance.yUsds);
 
         YUsdsLike(instance.yUsds).drip();
-        YUsdsLike(instance.yUsds).file("ssr", cfg.ssr);
+        YUsdsLike(instance.yUsds).file("syr", cfg.syr);
 
         dss.chainlog.setAddress("YUSDS",     instance.yUsds);
         dss.chainlog.setAddress("YUSDS_IMP", instance.yUsdsImp);
