@@ -46,7 +46,7 @@ contract YUsds2 is UUPSUpgradeable {
     // Savings yield
     uint192 public chi;   // The Rate Accumulator  [ray]
     uint64  public rho;   // Time of last drip     [unix epoch time]
-    uint256 public ssr;   // The USDS Savings Rate [ray]
+    uint256 public syr;   // The USDS Savings Rate [ray]
 
     string  public constant version  = "2";
 
@@ -108,7 +108,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         token = YUsds(inst.yUsds);
         YUsdsConfig memory conf = YUsdsConfig({
             clip: clip,
-            ssr: 1000000001547125957863212448
+            syr: 1000000001547125957863212448
         });
         vm.warp(block.timestamp + 10);
         vm.startPrank(pauseProxy);
@@ -116,7 +116,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         vm.stopPrank();
         assertEq(token.chi(), RAY);
         assertEq(token.rho(), block.timestamp);
-        assertEq(token.ssr(), 1000000001547125957863212448);
+        assertEq(token.syr(), 1000000001547125957863212448);
         assertEq(dss.vat.can(address(token), usdsJoin), 1);
         assertEq(token.wards(pauseProxy), 1);
         assertEq(token.version(), "1");
@@ -264,7 +264,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token2.decimals(), 18);
         assertEq(token2.chi(), RAY);
         assertEq(token2.rho(), block.timestamp);
-        assertEq(token2.ssr(), RAY);
+        assertEq(token2.syr(), RAY);
         assertEq(dss.vat.can(address(token2), usdsJoin), 1);
         assertEq(token2.wards(address(this)), 1);
         assertEq(address(token2.usdsJoin()), usdsJoin);
@@ -282,14 +282,14 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testFile() public {
-        checkFileUint(address(token), "YUsds", ["ssr"]);
+        checkFileUint(address(token), "YUsds", ["syr"]);
 
-        vm.expectRevert("YUsds/wrong-ssr-value");
-        vm.prank(pauseProxy); token.file("ssr", RAY - 1);
+        vm.expectRevert("YUsds/wrong-syr-value");
+        vm.prank(pauseProxy); token.file("syr", RAY - 1);
 
         vm.warp(block.timestamp + 1);
         vm.expectRevert("YUsds/chi-not-up-to-date");
-        vm.prank(pauseProxy); token.file("ssr", RAY);
+        vm.prank(pauseProxy); token.file("syr", RAY);
     }
 
     function testERC20() public {
@@ -301,7 +301,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testConversion() public {
-        assertGt(token.ssr(), 0);
+        assertGt(token.syr(), 0);
 
         uint256 pshares = token.convertToShares(1e18);
         uint256 passets = token.convertToAssets(pshares);
@@ -322,25 +322,25 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         token.deposit(100 ether, address(this));
         vm.warp(block.timestamp + 100 days);
         uint256 supply = token.totalSupply();
-        uint256 ssrUsds = usds.balanceOf(address(token));
+        uint256 syrUsds = usds.balanceOf(address(token));
         uint256 originalChi = token.chi();
-        uint256 expectedChi1 = _rpow(token.ssr(), block.timestamp - token.rho()) * token.chi() / RAY;
+        uint256 expectedChi1 = _rpow(token.syr(), block.timestamp - token.rho()) * token.chi() / RAY;
         uint256 diff1 = supply * expectedChi1 / RAY - supply * originalChi / RAY;
         vm.expectEmit();
         emit Drip(expectedChi1, diff1);
         assertEq(token.drip(), expectedChi1);
         assertEq(token.chi(), expectedChi1);
         assertGt(diff1, 0);
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff1);
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff1);
         vm.warp(block.timestamp + 100 days);
-        uint256 expectedChi2 = _rpow(token.ssr(), 100 days) * expectedChi1 / RAY;
+        uint256 expectedChi2 = _rpow(token.syr(), 100 days) * expectedChi1 / RAY;
         uint256 diff2 = supply * expectedChi2 / RAY - supply * expectedChi1 / RAY;
         vm.expectEmit();
         emit Drip(expectedChi2, diff2);
         assertEq(token.drip(), expectedChi2);
         assertGt(expectedChi2, expectedChi1);
         assertGt(diff2, 0);
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff1 + diff2);
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff1 + diff2);
         vm.expectEmit();
         emit Drip(expectedChi2, 0);
         assertEq(token.drip(), expectedChi2);
@@ -352,10 +352,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
     function testDeposit() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 ssrUsds = usds.balanceOf(address(token));
+        uint256 syrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiLast = _rpow(token.ssr(), 100 days) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.syr(), 100 days) * chiFirst / RAY;
         assertGt(chiLast, chiFirst);
 
         vm.warp(block.timestamp + 100 days);
@@ -372,18 +372,18 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie);
-        assertLe(token.totalAssets(), ssrUsds + diff + 1e18);    // May be slightly less due to rounding error
-        assertGe(token.totalAssets(), ssrUsds + diff + 1e18 - 1);
+        assertLe(token.totalAssets(), syrUsds + diff + 1e18);    // May be slightly less due to rounding error
+        assertGe(token.totalAssets(), syrUsds + diff + 1e18 - 1);
         assertEq(token.balanceOf(address(0xBEEF)), pie);
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + _divup(pie * chiLast, RAY));
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff + _divup(pie * chiLast, RAY));
     }
 
     function testReferredDeposit() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 ssrUsds = usds.balanceOf(address(token));
+        uint256 syrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiLast = _rpow(token.ssr(), 100 days) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.syr(), 100 days) * chiFirst / RAY;
         assertGt(chiLast, chiFirst);
 
         vm.warp(block.timestamp + 100 days);
@@ -402,10 +402,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie);
-        assertLe(token.totalAssets(), ssrUsds + diff + 1e18);    // May be slightly less due to rounding error
-        assertGe(token.totalAssets(), ssrUsds + diff + 1e18 - 1);
+        assertLe(token.totalAssets(), syrUsds + diff + 1e18);    // May be slightly less due to rounding error
+        assertGe(token.totalAssets(), syrUsds + diff + 1e18 - 1);
         assertEq(token.balanceOf(address(0xBEEF)), pie);
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + _divup(pie * chiLast, RAY));
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff + _divup(pie * chiLast, RAY));
     }
 
     function testDepositBadAddress() public {
@@ -417,10 +417,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
     function testMint() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 ssrUsds = usds.balanceOf(address(token));
+        uint256 syrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiLast = _rpow(token.ssr(), 100 days) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.syr(), 100 days) * chiFirst / RAY;
         assertGt(chiLast, chiFirst);
 
         vm.warp(block.timestamp + 100 days);
@@ -437,18 +437,18 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie);
-        assertLe(token.totalAssets(), ssrUsds + diff + 1e18);    // May be slightly less due to rounding error
-        assertGe(token.totalAssets(), ssrUsds + diff + 1e18 - 1);
+        assertLe(token.totalAssets(), syrUsds + diff + 1e18);    // May be slightly less due to rounding error
+        assertGe(token.totalAssets(), syrUsds + diff + 1e18 - 1);
         assertEq(token.balanceOf(address(0xBEEF)), pie);
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + _divup(pie * chiLast, RAY));
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff + _divup(pie * chiLast, RAY));
     }
 
     function testReferredMint() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 ssrUsds = usds.balanceOf(address(token));
+        uint256 syrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiLast = _rpow(token.ssr(), 100 days) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.syr(), 100 days) * chiFirst / RAY;
         assertGt(chiLast, chiFirst);
 
         vm.warp(block.timestamp + 100 days);
@@ -467,10 +467,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie);
-        assertLe(token.totalAssets(), ssrUsds + diff + 1e18);    // May be slightly less due to rounding error
-        assertGe(token.totalAssets(), ssrUsds + diff + 1e18 - 1);
+        assertLe(token.totalAssets(), syrUsds + diff + 1e18);    // May be slightly less due to rounding error
+        assertGe(token.totalAssets(), syrUsds + diff + 1e18 - 1);
         assertEq(token.balanceOf(address(0xBEEF)), pie);
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + _divup(pie * chiLast, RAY));
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff + _divup(pie * chiLast, RAY));
     }
 
     function testMintBadAddress() public {
@@ -482,11 +482,11 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
     function testRedeem() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 ssrUsds = usds.balanceOf(address(token));
+        uint256 syrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiMiddle = _rpow(token.ssr(), 100 days) * chiFirst / RAY;
-        uint256 chiLast = _rpow(token.ssr(), 200 days) * chiMiddle / RAY;
+        uint256 chiMiddle = _rpow(token.syr(), 100 days) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.syr(), 200 days) * chiMiddle / RAY;
         assertGt(chiMiddle, chiFirst);
         assertGt(chiLast, chiMiddle);
 
@@ -497,7 +497,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiMiddle);
         uint256 diff = prevSupply * chiMiddle / RAY - prevSupply * chiFirst / RAY;
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + _divup(pie * chiMiddle, RAY));
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff + _divup(pie * chiMiddle, RAY));
 
         vm.warp(block.timestamp + 200 days);
 
@@ -515,23 +515,23 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.totalSupply(), prevSupply + pie - pie * 0.9e18 / WAD);
         assertEq(token.balanceOf(address(0xBEEF)), pie - pie * 0.9e18 / WAD);
         assertEq(usds.balanceOf(address(0xAAA)), (pie * 0.9e18 / WAD) * chiLast / RAY);
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + 1e18 - (pie * 0.9e18 / WAD) * chiLast / RAY);
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff + 1e18 - (pie * 0.9e18 / WAD) * chiLast / RAY);
 
         vm.prank(address(0xBEEF));
         token.redeem(pie - pie * 0.9e18 / WAD, address(0xAAA), address(0xBEEF));
         assertEq(token.totalSupply(), prevSupply);
         assertEq(token.balanceOf(address(0xBEEF)), 0);
         assertEq(usds.balanceOf(address(0xAAA)), (pie * 0.9e18 / WAD) * chiLast / RAY + (pie - pie * 0.9e18 / WAD) * chiLast / RAY);
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + 1e18 - (pie * 0.9e18 / WAD) * chiLast / RAY - (pie - pie * 0.9e18 / WAD) * chiLast / RAY);
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff + 1e18 - (pie * 0.9e18 / WAD) * chiLast / RAY - (pie - pie * 0.9e18 / WAD) * chiLast / RAY);
     }
 
     function testWithdraw() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 ssrUsds = usds.balanceOf(address(token));
+        uint256 syrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiMiddle = _rpow(token.ssr(), 100 days) * chiFirst / RAY;
-        uint256 chiLast = _rpow(token.ssr(), 200 days) * chiMiddle / RAY;
+        uint256 chiMiddle = _rpow(token.syr(), 100 days) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.syr(), 200 days) * chiMiddle / RAY;
         assertGt(chiMiddle, chiFirst);
         assertGt(chiLast, chiMiddle);
 
@@ -542,7 +542,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiMiddle);
         uint256 diff = prevSupply * chiMiddle / RAY - prevSupply * chiFirst / RAY;
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + 1e18);
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff + 1e18);
 
         vm.warp(block.timestamp + 200 days);
 
@@ -562,7 +562,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.totalSupply(), prevSupply + pie - shares);
         assertEq(token.balanceOf(address(0xBEEF)), pie - shares);
         assertEq(usds.balanceOf(address(0xAAA)), assets);
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + 1e18 - assets);
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff + 1e18 - assets);
 
         uint256 rAssets = token.balanceOf(address(0xBEEF)) * chiLast / RAY;
         vm.prank(address(0xBEEF));
@@ -570,7 +570,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.totalSupply(), prevSupply);
         assertEq(token.balanceOf(address(0xBEEF)), 0);
         assertEq(usds.balanceOf(address(0xAAA)), assets + rAssets);
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff + 1e18 - (pie * 0.9e18 / WAD) * chiLast / RAY - (pie - pie * 0.9e18 / WAD) * chiLast / RAY);
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff + 1e18 - (pie * 0.9e18 / WAD) * chiLast / RAY - (pie - pie * 0.9e18 / WAD) * chiLast / RAY);
     }
 
     function testSharesEstimatesMatch() public {
@@ -623,25 +623,25 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         token.deposit(amount, address(this));
         vm.warp(block.timestamp + warp);
         uint256 supply = token.totalSupply();
-        uint256 ssrUsds = usds.balanceOf(address(token));
+        uint256 syrUsds = usds.balanceOf(address(token));
         uint256 originalChi = token.chi();
-        uint256 expectedChi1 = _rpow(token.ssr(), block.timestamp - token.rho()) * token.chi() / RAY;
+        uint256 expectedChi1 = _rpow(token.syr(), block.timestamp - token.rho()) * token.chi() / RAY;
         uint256 diff1 = supply * expectedChi1 / RAY - supply * originalChi / RAY;
         vm.expectEmit();
         emit Drip(expectedChi1, diff1);
         assertEq(token.drip(), expectedChi1);
         assertEq(token.chi(), expectedChi1);
         assertGt(diff1, 0);
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff1);
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff1);
         vm.warp(block.timestamp + warp2);
-        uint256 expectedChi2 = _rpow(token.ssr(), warp2) * expectedChi1 / RAY;
+        uint256 expectedChi2 = _rpow(token.syr(), warp2) * expectedChi1 / RAY;
         uint256 diff2 = supply * expectedChi2 / RAY - supply * expectedChi1 / RAY;
         vm.expectEmit();
         emit Drip(expectedChi2, diff2);
         assertEq(token.drip(), expectedChi2);
         assertGt(expectedChi2, expectedChi1);
         assertGt(diff2, 0);
-        assertEq(usds.balanceOf(address(token)), ssrUsds + diff1 + diff2);
+        assertEq(usds.balanceOf(address(token)), syrUsds + diff1 + diff2);
         vm.expectEmit();
         emit Drip(expectedChi2, 0);
         assertEq(token.drip(), expectedChi2);
@@ -657,10 +657,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         warp %= 365 days;
 
         uint256 prevSupply = token.totalSupply();
-        uint256 ssrUsds = usds.balanceOf(address(token));
+        uint256 syrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiLast = _rpow(token.ssr(), warp) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.syr(), warp) * chiFirst / RAY;
         assertGe(chiLast, chiFirst);
 
         vm.warp(block.timestamp + warp);
@@ -681,7 +681,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
             assertEq(ashares, shares);
             assertEq(token.totalSupply(), prevSupply + shares);
             assertEq(token.balanceOf(to), shares);
-            assertEq(usds.balanceOf(address(token)), ssrUsds + diff + amount);
+            assertEq(usds.balanceOf(address(token)), syrUsds + diff + amount);
         } else {
             vm.expectRevert("YUsds/invalid-address");
             token.deposit(amount, to);
@@ -695,10 +695,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         vm.warp(block.timestamp + warp);
 
         uint256 prevSupply = token.totalSupply();
-        uint256 ssrUsds = usds.balanceOf(address(token));
+        uint256 syrUsds = usds.balanceOf(address(token));
 
         uint256 chiFirst = token.chi();
-        uint256 chiLast = _rpow(token.ssr(), warp) * chiFirst / RAY;
+        uint256 chiLast = _rpow(token.syr(), warp) * chiFirst / RAY;
         assertGe(chiLast, chiFirst);
 
         shares %= 100 ether * RAY / chiLast;
@@ -719,7 +719,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
             assertEq(aassets, assets);
             assertEq(token.totalSupply(), prevSupply + shares);
             assertEq(token.balanceOf(to), shares);
-            assertEq(usds.balanceOf(address(token)), ssrUsds + diff + _divup(shares * chiLast, RAY));
+            assertEq(usds.balanceOf(address(token)), syrUsds + diff + _divup(shares * chiLast, RAY));
         } else {
             vm.expectRevert("YUsds/invalid-address");
             token.mint(shares, to);
@@ -757,8 +757,8 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         testData.usdsBalanceFrom = usds.balanceOf(from);
         testData.usdsBalanceTo = usds.balanceOf(to);
         testData.chiFirst = token.chi();
-        testData.chiMiddle = _rpow(token.ssr(), warp) * testData.chiFirst / RAY;
-        testData.chiLast = _rpow(token.ssr(), warp2) * testData.chiMiddle / RAY;
+        testData.chiMiddle = _rpow(token.syr(), warp) * testData.chiFirst / RAY;
+        testData.chiLast = _rpow(token.syr(), warp2) * testData.chiMiddle / RAY;
         assertGe(testData.chiMiddle, testData.chiFirst);
         assertGe(testData.chiLast, testData.chiMiddle);
 
@@ -829,8 +829,8 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         testData.usdsBalanceFrom = usds.balanceOf(from);
         testData.usdsBalanceTo = usds.balanceOf(to);
         testData.chiFirst = token.chi();
-        testData.chiMiddle = _rpow(token.ssr(), warp) * testData.chiFirst / RAY;
-        testData.chiLast = _rpow(token.ssr(), warp2) * testData.chiMiddle / RAY;
+        testData.chiMiddle = _rpow(token.syr(), warp) * testData.chiFirst / RAY;
+        testData.chiLast = _rpow(token.syr(), warp2) * testData.chiMiddle / RAY;
         assertGe(testData.chiMiddle, testData.chiFirst);
         assertGe(testData.chiLast, testData.chiMiddle);
 

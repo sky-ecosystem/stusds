@@ -49,7 +49,7 @@ pragma solidity ^0.8.21;
 //         yUsds = YUsds(address(new ERC1967Proxy(address(new YUsds(address(usdsJoin), address(0))), abi.encodeCall(YUsds.initialize, ()))));
 //         vat.rely(address(yUsds));
 
-//         yUsds.file("ssr", 1000000001547125957863212448);
+//         yUsds.file("syr", 1000000001547125957863212448);
 
 //         vat.hope(address(usdsJoin));
 
