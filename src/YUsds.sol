@@ -37,6 +37,7 @@ interface VatLike {
 }
 
 interface JugLike {
+    function ilks(bytes32) external view returns (uint256, uint256);
     function drip(bytes32) external returns (uint256);
 }
 
@@ -73,6 +74,7 @@ contract YUsds is UUPSUpgradeable {
     uint192 public chi;   // The Rate Accumulator  [ray]
     uint64  public rho;   // Time of last drip     [unix epoch time]
     uint256 public syr;   // The USDS Savings Rate [ray]
+    uint256 public cap;   // Borrow ceiling        [rad]
 
     // --- Constants ---
 
@@ -209,6 +211,10 @@ contract YUsds is UUPSUpgradeable {
         }
     }
 
+    function _min(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = x < y ? x : y;
+    }
+
     // --- Admin external functions ---
 
     function rely(address usr) external auth {
@@ -226,22 +232,32 @@ contract YUsds is UUPSUpgradeable {
             require(data >= RAY, "YUsds/wrong-syr-value");
             require(rho == block.timestamp, "YUsds/chi-not-up-to-date");
             syr = data;
+        } else if (what == "cap") {
+            cap = data;
         } else revert("YUsds/file-unrecognized-param");
         emit File(what, data);
     }
 
     function cut(uint256 rad) external auth {
         uint256 assets = _divup(rad, RAY);
-        uint256 oldChi = drip();
+        uint256 oldChi = _drip();
         uint256 prevTotalAssets = convertToAssets(totalSupply);
         uint256 newChi = chi = uint192(oldChi * (prevTotalAssets - assets) / prevTotalAssets); // safe as newChi < oldChi;
         usdsJoin.join(vow, assets);
+        _setLine();
         emit Cut(assets, oldChi, newChi);
+    }
+
+    // --- Set ilk debt ceiling ---
+
+    function _setLine() internal {
+        vat.file(ilk, "line", _min(cap, totalSupply * chi - clip.Due()));
+        // TODO: define if we want to update the vat.Line as well (quite probably yes)
     }
 
     // --- Savings Rate Accumulation external/internal function ---
 
-    function drip() public returns (uint256 nChi) {
+    function _drip() internal returns (uint256 nChi) {
         (uint256 chi_, uint256 rho_) = (chi, rho);
         uint256 diff;
         if (block.timestamp > rho_) {
@@ -256,6 +272,11 @@ contract YUsds is UUPSUpgradeable {
             nChi = chi_;
         }
         emit Drip(nChi, diff);
+    }
+
+    function drip() external returns (uint256 nChi) {
+        nChi = _drip();
+        _setLine();
     }
 
     // --- ERC20 Mutations ---
@@ -321,7 +342,7 @@ contract YUsds is UUPSUpgradeable {
             totalSupply = totalSupply + shares; // note: we don't need an overflow check here b/c shares totalSupply will always be <= usds totalSupply
         }
 
-        vat.file(ilk, "line", totalSupply * chi - clip.Due());
+        _setLine();
 
         emit Deposit(msg.sender, receiver, assets, shares);
         emit Transfer(address(0), receiver, shares);
@@ -351,7 +372,7 @@ contract YUsds is UUPSUpgradeable {
             totalSupply      = totalSupply - shares;
         }
 
-        vat.file(ilk, "line", totalSupply * chi - clip.Due());
+        _setLine();
 
         usds.transfer(receiver, assets);
 
@@ -388,7 +409,7 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function deposit(uint256 assets, address receiver) public returns (uint256 shares) {
-        shares = assets * RAY / drip();
+        shares = assets * RAY / _drip();
         _mint(assets, shares, receiver);
     }
 
@@ -407,7 +428,7 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function mint(uint256 shares, address receiver) public returns (uint256 assets) {
-        assets = _divup(shares * drip(), RAY);
+        assets = _divup(shares * _drip(), RAY);
         _mint(assets, shares, receiver);
     }
 
@@ -417,33 +438,46 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function maxWithdraw(address owner) external view returns (uint256) {
-        // TODO: add unutilized funds restriction?
-        return convertToAssets(balanceOf[owner]);
+        // TODO: WIP (might not be working properly)
+        (uint256 Art, uint256 rate,,,) = vat.ilks(ilk);
+        (uint256 duty_, uint256 rho_) = jug.ilks(ilk);
+        rate = (block.timestamp > rho_) ? _rpow(duty_, block.timestamp - rho_) * rate / RAY : rate;
+
+        return _min(
+            convertToAssets(balanceOf[owner]),
+            (convertToAssets(totalSupply) - Art * rate - clip.Due()) / RAY
+        );
     }
 
     function previewWithdraw(uint256 assets) external view returns (uint256) {
-        // TODO: add unutilized funds restriction?
         uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
         return _divup(assets * RAY, chi_);
     }
 
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares) {
-        shares = _divup(assets * RAY, drip());
+        shares = _divup(assets * RAY, _drip());
         _burn(assets, shares, receiver, owner);
     }
 
     function maxRedeem(address owner) external view returns (uint256) {
-        // TODO: add unutilized funds restriction?
-        return balanceOf[owner];
+        // TODO: WIP (might not be working properly)
+        (uint256 Art, uint256 rate,,,) = vat.ilks(ilk);
+        (uint256 duty_, uint256 rho_) = jug.ilks(ilk);
+        rate = (block.timestamp > rho_) ? _rpow(duty_, block.timestamp - rho_) * rate / RAY : rate;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
+
+        return _min(
+            balanceOf[owner],
+            (totalSupply * chi_ / RAY - Art * rate - clip.Due()) / chi_
+        );
     }
 
     function previewRedeem(uint256 shares) external view returns (uint256) {
-        // TODO: add unutilized funds restriction?
         return convertToAssets(shares);
     }
 
     function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets) {
-        assets = shares * drip() / RAY;
+        assets = shares * _drip() / RAY;
         _burn(assets, shares, receiver, owner);
     }
 
