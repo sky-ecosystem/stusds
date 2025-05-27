@@ -1143,14 +1143,14 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(usds.balanceOf(address(token)), usdsBalanceToken + diff1 + diff2 + depositAmount - 4 * withdrawAmount - rAssets);
     }
 
-    function testWithdrawRedeemInsufficientUnusedFunds(
+    function testMaxWithdrawRedeem(
         uint256 depositAmount,
         uint256 rate,
         uint256 due,
         uint256 div1,
         uint256 div2
     ) public {
-        depositAmount = bound(depositAmount, 1_000 ether, 1_000_000 ether);
+        depositAmount = bound(depositAmount, 2_000 ether, 1_000_000 ether);
 
         deal(address(usds), address(this), depositAmount);
         usds.approve(address(token), depositAmount);
@@ -1168,6 +1168,32 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         div1 = bound(div1, 2, 10);
         div2 = bound(div2, 2, 10);
 
+        uint256 maxWithdraw1 = token.maxWithdraw(address(0x222));
+        uint256 maxRedeem1 = token.maxRedeem(address(0x222));
+
+        assertEq(maxWithdraw1, token.convertToAssets(token.balanceOf(address(0x222))));
+        assertEq(maxRedeem1, token.balanceOf(address(0x222)));
+
+        uint256 id = vm.snapshot();
+
+        vm.expectRevert("YUsds/insufficient-balance");
+        vm.prank(address(0x222)); token.withdraw(maxWithdraw1 + 1, address(0x222), address(0x222));
+
+        vm.expectRevert("YUsds/insufficient-balance");
+        vm.prank(address(0x222)); token.redeem(maxRedeem1 + 1, address(0x222), address(0x222));
+
+        vm.prank(address(0x222)); token.withdraw(maxWithdraw1, address(0x222), address(0x222));
+        assertEq(token.maxWithdraw(address(0x222)), 0);
+        assertEq(token.maxRedeem(address(0x222)), 0);
+
+        vm.revertTo(id);
+
+        vm.prank(address(0x222)); token.redeem(maxRedeem1, address(0x222), address(0x222));
+        assertEq(token.maxWithdraw(address(0x222)), 0);
+        assertEq(token.maxRedeem(address(0x222)), 0);
+
+        vm.revertTo(id);
+
         uint256 art = depositAmount * RAY / (rate * div1);
         dss.vat.frob(token.ilk(), address(this), address(this), address(this), int256(depositAmount), int256(art));
 
@@ -1178,19 +1204,29 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         uint256 totalAssetsRAD = token.balanceOf(address(0x222)) * chi;
         assertEq(totalAssetsRAD / RAY, depositAmount + 100 ether);
 
-        vm.expectRevert("YUsds/insufficient-unused-funds");
-        vm.prank(address(0x222)); token.withdraw((totalAssetsRAD - art * rate - due) / RAY + 1, address(0x222), address(0x222));
+        uint256 maxWithdraw2 = token.maxWithdraw(address(0x222));
+        uint256 maxRedeem2 = token.maxRedeem(address(0x222));
+
+        assertLt(maxWithdraw2, maxWithdraw1);
+        assertLt(maxRedeem2, maxRedeem1);
 
         vm.expectRevert("YUsds/insufficient-unused-funds");
-        vm.prank(address(0x222)); token.redeem(((totalAssetsRAD - art * rate - due) / chi + 1), address(0x222), address(0x222));
+        vm.prank(address(0x222)); token.withdraw(maxWithdraw2 + 1, address(0x222), address(0x222));
 
-        uint256 id = vm.snapshot();
+        vm.expectRevert("YUsds/insufficient-unused-funds");
+        vm.prank(address(0x222)); token.redeem(maxRedeem2 + 1, address(0x222), address(0x222));
 
-        vm.prank(address(0x222)); token.withdraw((totalAssetsRAD - art * rate - due) / RAY, address(0x222), address(0x222));
+        id = vm.snapshot();
+
+        vm.prank(address(0x222)); token.withdraw(maxWithdraw2, address(0x222), address(0x222));
+        assertEq(token.maxWithdraw(address(0x222)), 0);
+        assertEq(token.maxRedeem(address(0x222)), 0);
 
         vm.revertTo(id);
 
-        vm.prank(address(0x222)); token.redeem((totalAssetsRAD - art * rate - due) / chi, address(0x222), address(0x222));
+        vm.prank(address(0x222)); token.redeem(maxRedeem2, address(0x222), address(0x222));
+        assertEq(token.maxWithdraw(address(0x222)), 0);
+        assertEq(token.maxRedeem(address(0x222)), 0);
     }
 
     function testRedeemInsufficientBalance(

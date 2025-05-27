@@ -441,14 +441,14 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function maxWithdraw(address owner) external view returns (uint256) {
-        // TODO: WIP (might not be working properly)
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
         (uint256 Art, uint256 rate,,,) = vat.ilks(ilk);
         (uint256 duty_, uint256 rho_) = jug.ilks(ilk);
         rate = (block.timestamp > rho_) ? _rpow(duty_, block.timestamp - rho_) * rate / RAY : rate;
 
         return _min(
             convertToAssets(balanceOf[owner]),
-            (convertToAssets(totalSupply) - Art * rate - clip.Due()) / RAY
+            (totalSupply * chi_ - Art * rate - clip.Due()) / RAY
         );
     }
 
@@ -463,15 +463,14 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function maxRedeem(address owner) external view returns (uint256) {
-        // TODO: WIP (might not be working properly)
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
         (uint256 Art, uint256 rate,,,) = vat.ilks(ilk);
         (uint256 duty_, uint256 rho_) = jug.ilks(ilk);
         rate = (block.timestamp > rho_) ? _rpow(duty_, block.timestamp - rho_) * rate / RAY : rate;
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
 
         return _min(
             balanceOf[owner],
-            (totalSupply * chi_ / RAY - Art * rate - clip.Due()) / chi_
+            (totalSupply * chi_ - Art * rate - clip.Due()) / chi_
         );
     }
 
