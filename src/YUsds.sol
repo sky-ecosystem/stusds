@@ -211,6 +211,12 @@ contract YUsds is UUPSUpgradeable {
         }
     }
 
+    function _subcap(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        unchecked {
+            z = x > y ? x - y : 0;
+        }
+    }
+
     function _min(uint256 x, uint256 y) internal pure returns (uint256 z) {
         z = x < y ? x : y;
     }
@@ -242,7 +248,7 @@ contract YUsds is UUPSUpgradeable {
         uint256 assets = _divup(rad, RAY);
         uint256 oldChi = _drip();
         uint256 prevTotalAssets = convertToAssets(totalSupply);
-        uint256 newChi = chi = uint192(oldChi * (prevTotalAssets - assets) / prevTotalAssets); // safe as newChi < oldChi;
+        uint256 newChi = chi = uint192(oldChi * _subcap(prevTotalAssets, assets) / prevTotalAssets); // safe as newChi < oldChi;
         usdsJoin.join(vow, assets);
         _setLine();
         emit Cut(assets, oldChi, newChi);
@@ -251,11 +257,8 @@ contract YUsds is UUPSUpgradeable {
     // --- Set ilk debt ceiling ---
 
     function _setLine() internal {
-        vat.file(ilk, "line", _min(cap, totalSupply * chi - clip.Due()));
-        // TODO:
-        // - define if we want to update the vat.Line as well (quite probably yes)
-        // - it shouldn't be possible with a normal path, but if due ends up being > totalAssets
-        // deposits will be stuck due to the underflow, we might prefer forcing 0 if that happens
+        vat.file(ilk, "line", _min(cap, _subcap(totalSupply * chi, clip.Due())));
+        // TODO: define if we want to update the vat.Line as well (quite probably yes)
     }
 
     // --- Savings Rate Accumulation external/internal function ---
@@ -448,7 +451,7 @@ contract YUsds is UUPSUpgradeable {
 
         return _min(
             convertToAssets(balanceOf[owner]),
-            (totalSupply * chi_ - Art * rate - clip.Due()) / RAY
+            _subcap(totalSupply * chi_, Art * rate + clip.Due()) / RAY
         );
     }
 
@@ -470,7 +473,7 @@ contract YUsds is UUPSUpgradeable {
 
         return _min(
             balanceOf[owner],
-            (totalSupply * chi_ - Art * rate - clip.Due()) / chi_
+            _subcap(totalSupply * chi_, Art * rate + clip.Due()) / chi_
         );
     }
 
