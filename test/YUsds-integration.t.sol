@@ -161,6 +161,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         }
     }
 
+    function _min(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = x < y ? x : y;
+    }
+
     function testDeployWithUpgradesLib() public {
         address clip2 = address(new ClipMock("LSEV2-SKY-B"));
         Options memory opts;
@@ -740,11 +744,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testDrip(uint256 amount, uint256 warp, uint256 warp2, uint256 warp3, uint256 due, uint256 cap) public {
-        warp %= 365 days;
-        warp2 %= 365 days;
-        warp3 %= 365 days;
-        vm.assume(warp > 0 && warp2 > 0 && warp3 > 0);
-        amount %= 100 ether;
+        warp = bound(warp, 1, 365 days);
+        warp2 = bound(warp2, 1, 365 days);
+        warp3 = bound(warp3, 1, 365 days);
+        amount = bound(amount, 0, 100 ether);
         token.deposit(amount, address(this));
         vm.warp(block.timestamp + warp);
         (,,, line1,) = dss.vat.ilks(token.ilk());
@@ -764,7 +767,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         vm.warp(block.timestamp + warp2);
         uint256 expectedChi2 = _rpow(token.syr(), warp2) * expectedChi1 / RAY;
         diff2 = supply * expectedChi2 / RAY - supply * expectedChi1 / RAY;
-        due = due % (line2 + diff2 * RAY);
+        due = bound(due, 0, _min(line2 + diff2 * RAY, supply * expectedChi2));
         clip.setDue(due);
         vm.expectEmit();
         emit Drip(expectedChi2, diff2);
@@ -780,7 +783,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         vm.warp(block.timestamp + warp3);
         uint256 expectedChi3 = _rpow(token.syr(), warp3) * expectedChi2 / RAY;
         diff3 = supply * expectedChi3 / RAY - supply * expectedChi2 / RAY;
-        cap = cap % (diff3 * RAY);
+        cap = bound(cap, 0, diff3 * RAY);
         vm.prank(pauseProxy); token.file("cap", line3 + cap);
         vm.expectEmit();
         emit Drip(expectedChi3, diff3);
@@ -807,12 +810,11 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         uint256 cap
     ) public {
         vm.assume(to != address(0x222));
-        amount  %= 100 ether;
-        amount2 %= 100 ether;
-        amount3 %= 100 ether;
-        amount4 %= 100 ether;
-        vm.assume(amount > 0 && amount2 > 0 && amount3 > 0 && amount4 > 0);
-        warp %= 365 days;
+        amount  = bound(amount,  1, 100 ether);
+        amount2 = bound(amount2, 1, 100 ether);
+        amount3 = bound(amount3, 1, 100 ether);
+        amount4 = bound(amount4, 1, 100 ether);
+        warp = bound(warp, 0, 365 days);
 
         deal(address(usds), address(this), 400 ether);
 
@@ -852,7 +854,8 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
             (,,, line3,) = dss.vat.ilks(token.ilk());
             assertApproxEqAbs(line3, line2 + amount2 * RAY, 0.00000000000000001e45);
 
-            due = due % (line3 + amount3 * RAY);
+            uint256 totalAssets = (token.totalSupply() + token.previewDeposit(amount3)) * chiLast;
+            due = bound(due, 0, _min(line3 + amount3 * RAY, totalAssets));
             clip.setDue(due);
 
             token.deposit(amount3, address(0xBEEF));
@@ -860,7 +863,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
             (,,, line4,) = dss.vat.ilks(token.ilk());
             assertApproxEqAbs(line4, line3 + amount3 * RAY - due, 0.00000000000000001e45); // Reduced by ongoing auction debt
 
-            cap = cap % (amount4 * RAY);
+            cap = bound(cap, 0, amount4 * RAY);
             vm.prank(pauseProxy); token.file("cap", line4 + cap);
 
             token.deposit(amount4, address(0xBEEF));
@@ -884,12 +887,11 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         uint256 cap
     ) public {
         vm.assume(to != address(0x222));
-        shares  %= 100 ether;
-        shares2 %= 100 ether;
-        shares3 %= 100 ether;
-        shares4 %= 100 ether;
-        vm.assume(shares > 0 && shares2 > 0 && shares3 > 0 && shares4 > 0);
-        warp %= 365 days;
+        shares  = bound(shares,  1, 100 ether);
+        shares2 = bound(shares2, 1, 100 ether);
+        shares3 = bound(shares3, 1, 100 ether);
+        shares4 = bound(shares4, 1, 100 ether);
+        warp = bound(warp, 0, 365 days);
 
         deal(address(usds), address(this), 400 ether);
 
@@ -904,7 +906,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         chiLast = _rpow(token.syr(), warp) * chiFirst / RAY;
         assertGe(chiLast, chiFirst);
 
-        shares %= 100 ether * RAY / chiLast;
+        shares = bound(shares, 0, 100 ether * RAY / chiLast);
 
         uint256 assets = token.previewMint(shares);
         if (to != address(0) && to != address(token)) {
@@ -931,7 +933,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
             (,,, line3,) = dss.vat.ilks(token.ilk());
             assertApproxEqAbs(line3, line2 + shares2 * chiLast, 0.00000000000000001e45);
 
-            due = due % (line3 + shares3 * chiLast);
+            due = bound(due, 0, line3 + shares3 * chiLast);
             clip.setDue(due);
 
             token.mint(shares3, address(0xBEEF));
@@ -939,7 +941,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
             (,,, line4,) = dss.vat.ilks(token.ilk());
             assertApproxEqAbs(line4, line3 + shares3 * chiLast - due, 0.00000000000000001e45); // Reduced by ongoing auction debt
 
-            cap = cap % (shares4 * chiLast);
+            cap = bound(cap, 0, shares4 * chiLast);
             vm.prank(pauseProxy); token.file("cap", line4 + cap);
 
             token.mint(shares4, address(0xBEEF));
@@ -963,11 +965,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     ) public {
         vm.assume(from != address(0) && from != address(token) && from != address(0x222));
         vm.assume(to != address(0) && to != address(token) && to != address(usds) && to != address(0x222));
-        redeemAmount  %= 100 ether;
-        vm.assume(redeemAmount > 0);
+        redeemAmount = bound(redeemAmount, 1, 100 ether);
 
-        warp %= 365 days;
-        warp2 %= 365 days;
+        warp = bound(warp, 0, 365 days);
+        warp2 = bound(warp2, 0, 365 days);
 
         uint256 prevSupply = token.totalSupply();
         usdsBalanceToken = usds.balanceOf(address(token));
@@ -1022,7 +1023,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         (,,, line3,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line3, line2 - redeemAmount * chiLast, 0.00000000000000001e45);
 
-        due = due % (redeemAmount * chiLast);
+        due = bound(due, 0, redeemAmount * chiLast);
         clip.setDue(due);
 
         vm.prank(from); token.redeem(redeemAmount, to, from);
@@ -1030,7 +1031,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         (,,, line4,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line4, line3 - redeemAmount * chiLast - due, 0.00000000000000001e45); // Also reduced by ongoing auction debt
 
-        cap = cap % (redeemAmount * chiLast);
+        cap = bound(cap, 0, redeemAmount * chiLast);
         vm.prank(pauseProxy); token.file("cap", line4 - redeemAmount * chiLast - cap);
 
         vm.prank(from); token.redeem(redeemAmount, to, from);
@@ -1057,11 +1058,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     ) public {
         vm.assume(from != address(0) && from != address(token) && from != address(0x222));
         vm.assume(to != address(0) && to != address(token) && to != address(usds) && to != address(0x222));
-        withdrawAmount %= 100 ether;
-        vm.assume(withdrawAmount > 0);
+        withdrawAmount = bound(withdrawAmount, 1, 100 ether);
 
-        warp %= 365 days;
-        warp2 %= 365 days;
+        warp = bound(warp, 0, 365 days);
+        warp2 = bound(warp2, 0, 365 days);
 
         uint256 prevSupply = token.totalSupply();
         usdsBalanceToken = usds.balanceOf(address(token));
@@ -1117,7 +1117,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         (,,, line3,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line3, line2 - withdrawAmount * RAY, 0.00000000000000001e45);
 
-        due = due % (withdrawAmount * RAY);
+        due = bound(due, 0, withdrawAmount * RAY);
         clip.setDue(due);
 
         vm.prank(from); token.withdraw(withdrawAmount, to, from);
@@ -1125,13 +1125,13 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         (,,, line4,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line4, line3 - withdrawAmount * RAY - due, 0.00000000000000001e45); // Also reduced by ongoing auction debt
 
-        cap = cap % (withdrawAmount * RAY);
+        cap = bound(cap, 0, withdrawAmount * RAY);
         vm.prank(pauseProxy); token.file("cap", line4 - withdrawAmount * RAY - cap);
 
         vm.prank(from); token.withdraw(withdrawAmount, to, from);
 
         (,,, line5,) = dss.vat.ilks(token.ilk());
-        assertApproxEqAbs(line5, cap, line4 - withdrawAmount * RAY - cap); // Limited by cap
+        assertApproxEqAbs(line5, line4 - withdrawAmount * RAY - cap, 0.00000000000000001e45); // Limited by cap
 
         uint256 rAssets = token.balanceOf(from) * chiLast / RAY;
         vm.prank(from);
@@ -1152,11 +1152,9 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     ) public {
         depositAmount = bound(depositAmount, 1_000 ether, 1_000_000 ether);
 
-        deal(address(usds), address(0x222), depositAmount);
-        vm.startPrank(address(0x222));
+        deal(address(usds), address(this), depositAmount);
         usds.approve(address(token), depositAmount);
-        token.deposit(depositAmount, address(this));
-        vm.stopPrank();
+        token.deposit(depositAmount, address(0x222));
 
         rate = bound(rate, RAY, 2 * RAY);
 
@@ -1173,26 +1171,26 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         uint256 art = depositAmount * RAY / (rate * div1);
         dss.vat.frob(token.ilk(), address(this), address(this), address(this), int256(depositAmount), int256(art));
 
-        due = bound(due, 0, depositAmount * RAY / div2);
+        due = bound(due, 100 ether, depositAmount * RAY / div2);
         clip.setDue(due);
 
         uint256 chi = token.chi();
-        uint256 totalAssetsRAD = token.totalSupply() * chi;
+        uint256 totalAssetsRAD = token.balanceOf(address(0x222)) * chi;
         assertEq(totalAssetsRAD / RAY, depositAmount + 100 ether);
 
         vm.expectRevert("YUsds/insufficient-unused-funds");
-        token.withdraw((totalAssetsRAD - art * rate - due) / RAY + 1, address(this), address(this));
+        vm.prank(address(0x222)); token.withdraw((totalAssetsRAD - art * rate - due) / RAY + 1, address(0x222), address(0x222));
 
         vm.expectRevert("YUsds/insufficient-unused-funds");
-        token.redeem(((totalAssetsRAD - art * rate - due) / chi + 1), address(this), address(this));
+        vm.prank(address(0x222)); token.redeem(((totalAssetsRAD - art * rate - due) / chi + 1), address(0x222), address(0x222));
 
         uint256 id = vm.snapshot();
 
-        token.withdraw((totalAssetsRAD - art * rate - due) / RAY, address(this), address(this));
+        vm.prank(address(0x222)); token.withdraw((totalAssetsRAD - art * rate - due) / RAY, address(0x222), address(0x222));
 
         vm.revertTo(id);
 
-        token.redeem((totalAssetsRAD - art * rate - due) / chi, address(this), address(this));
+        vm.prank(address(0x222)); token.redeem((totalAssetsRAD - art * rate - due) / chi, address(0x222), address(0x222));
     }
 
     function testRedeemInsufficientBalance(
@@ -1201,8 +1199,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         uint256 burnAmount
     ) public {
         vm.assume(to != address(0) && to != address(token) && to != address(usds) && to != address(0x222));
-        mintAmount %= 100 ether;
-        burnAmount %= 100 ether;
+        mintAmount = bound(mintAmount, 0, 100 ether);
 
         uint256 pie = mintAmount * RAY / token.chi();
         burnAmount = bound(burnAmount, pie + 1, type(uint256).max / token.chi());
@@ -1210,5 +1207,60 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         token.deposit(mintAmount, to);
         vm.expectRevert("YUsds/insufficient-balance");
         token.redeem(burnAmount, to, to);
+    }
+
+    function testCut(
+        uint256 depositAmount,
+        uint256 warp,
+        uint256 rad,
+        uint256 due,
+        uint256 cap
+    ) public {
+        depositAmount = bound(depositAmount, 1_000 ether, 1_000_000 ether);
+        warp = bound(warp, 0, 365 days);
+        rad = bound(rad, 0, depositAmount * RAY / 5);
+
+        uint256 assets = _divup(rad, RAY);
+
+        deal(address(usds), address(this), depositAmount);
+        usds.approve(address(token), depositAmount);
+        token.deposit(depositAmount, address(this));
+
+        (,,, line1,) = dss.vat.ilks(token.ilk());
+        uint256 supply = token.totalSupply();
+        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 totalAssets = token.totalAssets();
+        uint256 vatDaiVow = dss.vat.dai(address(dss.vow));
+        assertLe(totalAssets, yusdsUsds);
+        chiFirst = token.chi();
+        uint256 chiPrevDeduction = _rpow(token.syr(), block.timestamp + warp - token.rho()) * token.chi() / RAY;
+        diff1 = supply * chiPrevDeduction / RAY - supply * chiFirst / RAY;
+        chiLast = chiPrevDeduction * (totalAssets + diff1 - assets) / (totalAssets + diff1);
+
+        vm.warp(block.timestamp + warp);
+
+        vm.prank(pauseProxy); token.cut(rad);
+
+        (,,, line2,) = dss.vat.ilks(token.ilk());
+        assertApproxEqAbs(line2, line1 + diff1 * RAY - assets * RAY, 0.00000000000000001e45);
+        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 - assets);
+        assertEq(token.chi(), chiLast);
+        assertEq(dss.vat.dai(address(dss.vow)), vatDaiVow + assets * RAY);
+
+        due = bound(due, 0, assets * RAY);
+        clip.setDue(due);
+
+        vm.prank(pauseProxy); token.cut(rad);
+
+        (,,, line3,) = dss.vat.ilks(token.ilk());
+        assertApproxEqAbs(line3, line2 - assets * RAY - due, 0.00000000000000001e45); // Also reduced by ongoing auction debt
+
+        cap = bound(cap, 0, assets * RAY);
+        vm.prank(pauseProxy); token.file("cap", line3 - assets * RAY - cap);
+
+        vm.prank(pauseProxy); token.cut(rad);
+
+        (,,, line4,) = dss.vat.ilks(token.ilk());
+        assertApproxEqAbs(line4, line3 - assets * RAY - cap, 0.00000000000000001e45); // Limited by cap
     }
 }
