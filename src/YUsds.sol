@@ -147,7 +147,7 @@ contract YUsds is UUPSUpgradeable {
         rho = uint64(block.timestamp);
         syr = RAY;
         vat.hope(address(usdsJoin));
-        usds.approve(vow, type(uint256).max);
+        usds.approve(address(usdsJoin), type(uint256).max);
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
@@ -252,7 +252,10 @@ contract YUsds is UUPSUpgradeable {
 
     function _setLine() internal {
         vat.file(ilk, "line", _min(cap, totalSupply * chi - clip.Due()));
-        // TODO: define if we want to update the vat.Line as well (quite probably yes)
+        // TODO:
+        // - define if we want to update the vat.Line as well (quite probably yes)
+        // - it shouldn't be possible with a normal path, but if due ends up being > totalAssets
+        // deposits will be stuck due to the underflow, we might prefer forcing 0 if that happens
     }
 
     // --- Savings Rate Accumulation external/internal function ---
