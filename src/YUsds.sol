@@ -345,8 +345,8 @@ contract YUsds is UUPSUpgradeable {
 
         unchecked {
             balanceOf[receiver] = balanceOf[receiver] + shares; // note: we don't need an overflow check here b/c balanceOf[receiver] <= totalSupply
-            totalSupply = totalSupply + shares; // note: we don't need an overflow check here b/c shares totalSupply will always be <= usds totalSupply
         }
+        totalSupply = totalSupply + shares;
 
         _setLine();
 
