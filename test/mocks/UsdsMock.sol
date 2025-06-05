@@ -94,7 +94,6 @@ contract UsdsMock {
 
     // --- ERC20 Mutations ---
     function transfer(address to, uint256 value) external returns (bool) {
-        require(to != address(0) && to != address(this), "Usds/invalid-address");
         uint256 balance = balanceOf[msg.sender];
         require(balance >= value, "Usds/insufficient-balance");
 
