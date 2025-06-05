@@ -79,6 +79,188 @@ invariant balanceSum_equals_totalSupply() balanceSum() == to_mathint(totalSupply
                 m -> m.selector != sig:upgradeToAndCall(address, bytes).selector
             }
 
+rule invariant_maxWithdraw(address owner) {
+    env e;
+
+    uint256 assets = maxWithdraw(e, owner);
+    require assets > 0;
+
+    requireInvariant balanceSum_equals_totalSupply();
+
+    bytes32 ilk = ilk();
+    address vow = vow();
+
+    mathint totalSupply = totalSupply();
+
+    uint256 syr = syr();
+    mathint rho = rho();
+    mathint chi = chi();
+
+    uint256 jugDuty; mathint jugRho;
+    jugDuty, jugRho = jug.ilks(ilk);
+
+    // Blockchain behaviour
+    require e.block.timestamp >= rho;
+    require e.block.timestamp >= jugRho;
+
+    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint newChiCalc = defNewChi(e);
+    mathint sharesCalc = newChiCalc > 0 ? _divup(assets * RAY(), newChiCalc) : 0;
+
+    mathint dripDiff = totalSupply * newChiCalc / RAY() - totalSupply * chi / RAY();
+
+    mathint vatIlkArt; mathint vatIlkRatePrev; mathint a;
+    vatIlkArt, vatIlkRatePrev, a, a, a = vat.ilks(ilk);
+
+    mathint jugRpowRes = aux.rpow(jugDuty, require_uint256(e.block.timestamp - jugRho));
+    mathint vatIlkRate = e.block.timestamp > jugRho ? jugRpowRes * vatIlkRatePrev / RAY() : vatIlkRatePrev;
+
+    address receiver;
+    require receiver != 0 && receiver != currentContract;
+
+    // Correct vow set
+    require vow != currentContract && vow != usdsJoin;
+    require vow == jug.vow();
+    // Happening in initialize
+    require vat.can(currentContract, usdsJoin) == 1;
+    // Happening in init scripts
+    require vat.wards(currentContract) == 1;
+    // Vat is functional
+    require vat.live() == 1;
+    // ERC20 correct behaviour
+    require usds.totalSupply() >= usds.balanceOf(currentContract) + usds.balanceOf(receiver);
+    // TODO: see if can be replaced with an invariant rule
+    require usds.balanceOf(currentContract) >= totalSupply * chi;
+    // Existing set up
+    require vat.wards(jug) == 1;
+    // Convenience assumptions
+    require usds.totalSupply() + dripDiff <= max_uint256;
+    require vat.dai(currentContract) + dripDiff * RAY() <= max_uint256;
+    require vat.dai(vow) + vatIlkArt * (vatIlkRate - vatIlkRatePrev) <= max_uint256;
+    require vat.sin(vow) + dripDiff * RAY() <= max_uint256;
+    require vat.vice() + dripDiff * RAY() <= max_uint256;
+    require vat.debt() + dripDiff * RAY() + vatIlkArt * (vatIlkRate - vatIlkRatePrev) <= max_uint256;
+    require vat.dai(usdsJoin) + dripDiff * RAY() <= max_uint256;
+    require jug.base() == 0;
+    require jugDuty >= RAY();
+    require jugRpowRes * vatIlkRatePrev <= max_uint256;
+    require vatIlkArt <= max_int256();
+    require vatIlkRatePrev <= max_int256();
+    require vatIlkRate <= max_int256();
+    require vatIlkArt * (vatIlkRate - vatIlkRatePrev) <= max_int256();
+
+    // Avoid known revert conditions excepting the two ones that we want to prove maxWithdraw is correctly verifying:
+    // 1) allowed max assets don't go over user balance
+    // 2) allowed max assets don't go over the unutilized funds
+    require e.msg.value == 0;
+    require assets * RAY() <= max_uint256;
+    require chi > 0 && newChiCalc > 0;
+    require e.block.timestamp == rho || dripDiff >= 0;
+    require e.block.timestamp == rho || totalSupply * newChiCalc <= max_uint256;
+    require e.block.timestamp == rho || totalSupply * chi <= max_uint256;
+    require e.block.timestamp == rho || dripDiff * RAY() <= max_uint256;
+    require owner == e.msg.sender || allowance(owner, e.msg.sender) == max_uint256;
+
+    withdraw@withrevert(e, assets, receiver, owner);
+    bool lastRevertedValue = lastReverted;
+
+    mathint assetsAfter = maxWithdraw(e, owner);
+
+    assert !lastRevertedValue, "Assert 1";
+    assert assetsAfter == 0, "Assert 2";
+}
+
+rule invariant_maxRedeem(address owner) {
+    env e;
+
+    uint256 shares = maxRedeem(e, owner);
+    require shares > 0;
+
+    requireInvariant balanceSum_equals_totalSupply();
+
+    bytes32 ilk = ilk();
+    address vow = vow();
+
+    mathint totalSupply = totalSupply();
+
+    uint256 syr = syr();
+    mathint rho = rho();
+    mathint chi = chi();
+
+    uint256 jugDuty; mathint jugRho;
+    jugDuty, jugRho = jug.ilks(ilk);
+
+    // Blockchain behaviour
+    require e.block.timestamp >= rho;
+    require e.block.timestamp >= jugRho;
+
+    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint newChiCalc = defNewChi(e);
+    mathint assetsCalc = defConvertToAssets(e, shares);
+
+    mathint dripDiff = totalSupply * newChiCalc / RAY() - totalSupply * chi / RAY();
+
+    mathint vatIlkArt; mathint vatIlkRatePrev; mathint a;
+    vatIlkArt, vatIlkRatePrev, a, a, a = vat.ilks(ilk);
+
+    mathint jugRpowRes = aux.rpow(jugDuty, require_uint256(e.block.timestamp - jugRho));
+    mathint vatIlkRate = e.block.timestamp > jugRho ? jugRpowRes * vatIlkRatePrev / RAY() : vatIlkRatePrev;
+
+    address receiver;
+    require receiver != 0 && receiver != currentContract;
+
+    // Correct vow set
+    require vow != currentContract && vow != usdsJoin;
+    require vow == jug.vow();
+    // Happening in initialize
+    require vat.can(currentContract, usdsJoin) == 1;
+    // Happening in init scripts
+    require vat.wards(currentContract) == 1;
+    // Vat is functional
+    require vat.live() == 1;
+    // ERC20 correct behaviour
+    require usds.totalSupply() >= usds.balanceOf(currentContract) + usds.balanceOf(receiver);
+    // TODO: see if can be replaced with an invariant rule
+    require usds.balanceOf(currentContract) >= totalSupply * chi;
+    // Existing set up
+    require vat.wards(jug) == 1;
+    // Convenience assumptions
+    require usds.totalSupply() + dripDiff <= max_uint256;
+    require vat.dai(currentContract) + dripDiff * RAY() <= max_uint256;
+    require vat.dai(vow) + vatIlkArt * (vatIlkRate - vatIlkRatePrev) <= max_uint256;
+    require vat.sin(vow) + dripDiff * RAY() <= max_uint256;
+    require vat.vice() + dripDiff * RAY() <= max_uint256;
+    require vat.debt() + dripDiff * RAY() + vatIlkArt * (vatIlkRate - vatIlkRatePrev) <= max_uint256;
+    require vat.dai(usdsJoin) + dripDiff * RAY() <= max_uint256;
+    require jug.base() == 0;
+    require jugDuty >= RAY();
+    require jugRpowRes * vatIlkRatePrev <= max_uint256;
+    require vatIlkArt <= max_int256();
+    require vatIlkRatePrev <= max_int256();
+    require vatIlkRate <= max_int256();
+    require vatIlkArt * (vatIlkRate - vatIlkRatePrev) <= max_int256();
+
+    // Avoid known revert conditions excepting the two ones that we want to prove maxRedeem is correctly verifying:
+    // 1) allowed max shares don't go over user balance
+    // 2) allowed max shares don't go over the unutilized funds
+    require e.msg.value == 0;
+    require shares * newChiCalc <= max_uint256;
+    require e.block.timestamp == rho || rpowRes * chi <= max_uint256;
+    require e.block.timestamp == rho || dripDiff >= 0;
+    require e.block.timestamp == rho || totalSupply * newChiCalc <= max_uint256;
+    require e.block.timestamp == rho || totalSupply * chi <= max_uint256;
+    require e.block.timestamp == rho || dripDiff * RAY() <= max_uint256;
+    require owner == e.msg.sender || allowance(owner, e.msg.sender) == max_uint256;
+
+    redeem@withrevert(e, shares, receiver, owner);
+    bool lastRevertedValue = lastReverted;
+
+    mathint sharesAfter = maxRedeem(e, owner);
+
+    assert !lastRevertedValue, "Assert 1";
+    assert sharesAfter == 0, "Assert 2";
+}
+
 // Verify no more entry points exist
 rule entryPoints(method f) filtered { f -> !f.isView } {
     env e;
@@ -1221,9 +1403,6 @@ rule redeem_revert(uint256 shares, address receiver, address owner) {
 
     bytes32 ilk = ilk();
     address vow = vow();
-    
-    uint256 jugDuty; mathint jugRho;
-    jugDuty, jugRho = jug.ilks(ilk);
 
     mathint totalSupply = totalSupply();
     mathint balanceOfOwner = balanceOf(owner);
@@ -1232,6 +1411,9 @@ rule redeem_revert(uint256 shares, address receiver, address owner) {
     uint256 syr = syr();
     mathint rho = rho();
     mathint chi = chi();
+
+    uint256 jugDuty; mathint jugRho;
+    jugDuty, jugRho = jug.ilks(ilk);
 
     // Blockchain behaviour
     require e.block.timestamp >= rho();
