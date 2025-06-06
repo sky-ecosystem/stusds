@@ -8,10 +8,6 @@ contract UsdsMock {
 
     uint256 public totalSupply;
 
-    constructor() {
-        mint(msg.sender, 0);
-    }
-
     function approve(address spender, uint256 value) external returns (bool) {
         allowance[msg.sender][spender] = value;
         return true;
@@ -21,10 +17,8 @@ contract UsdsMock {
         uint256 balance = balanceOf[msg.sender];
         require(balance >= value, "Usds/insufficient-balance");
 
-        unchecked {
-            balanceOf[msg.sender] = balance - value;
-            balanceOf[to] += value;
-        }
+        balanceOf[msg.sender] = balance - value;
+        balanceOf[to] += value;
         return true;
     }
 
@@ -37,23 +31,17 @@ contract UsdsMock {
             if (allowed != type(uint256).max) {
                 require(allowed >= value, "Usds/insufficient-allowance");
 
-                unchecked {
-                    allowance[from][msg.sender] = allowed - value;
-                }
+                allowance[from][msg.sender] = allowed - value;
             }
         }
 
-        unchecked {
-            balanceOf[from] = balance - value;
-            balanceOf[to] += value;
-        }
+        balanceOf[from] = balance - value;
+        balanceOf[to] += value;
         return true;
     }
 
     function mint(address to, uint256 value) public {
-        unchecked {
-            balanceOf[to] = balanceOf[to] + value;
-        }
+        balanceOf[to] = balanceOf[to] + value;
         totalSupply = totalSupply + value;
     }
 
@@ -66,15 +54,11 @@ contract UsdsMock {
             if (allowed != type(uint256).max) {
                 require(allowed >= value, "Usds/insufficient-allowance");
 
-                unchecked {
-                    allowance[from][msg.sender] = allowed - value;
-                }
+                allowance[from][msg.sender] = allowed - value;
             }
         }
 
-        unchecked {
-            balanceOf[from] = balance - value;
-            totalSupply     = totalSupply - value;
-        }
+        balanceOf[from] = balance - value;
+        totalSupply     = totalSupply - value;
     }
 }

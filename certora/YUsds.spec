@@ -76,8 +76,19 @@ hook Sstore balanceOf[KEY address a] uint256 balance (uint256 old_balance) {
 }
 invariant balanceSum_equals_totalSupply() balanceSum() == to_mathint(totalSupply())
             filtered {
-                m -> m.selector != sig:upgradeToAndCall(address, bytes).selector
+                f -> f.selector != sig:upgradeToAndCall(address, bytes).selector
             }
+
+invariant usdsBalance_greater_or_equal_than_totalAssets() usds.balanceOf(currentContract) >= totalSupply() * chi() / RAY()
+            filtered {
+                f -> f.selector != sig:upgradeToAndCall(address, bytes).selector &&
+                     f.selector != sig:initialize().selector
+            } {
+            preserved with (env e) {
+                require e.msg.sender != currentContract;
+                requireInvariant balanceSum_equals_totalSupply;
+            }
+}
 
 rule invariant_maxWithdraw(address owner) {
     env e;
@@ -86,6 +97,7 @@ rule invariant_maxWithdraw(address owner) {
     require assets > 0;
 
     requireInvariant balanceSum_equals_totalSupply();
+    requireInvariant usdsBalance_greater_or_equal_than_totalAssets();
 
     bytes32 ilk = ilk();
     address vow = vow();
@@ -129,8 +141,6 @@ rule invariant_maxWithdraw(address owner) {
     require vat.live() == 1;
     // ERC20 correct behaviour
     require usds.totalSupply() >= usds.balanceOf(currentContract) + usds.balanceOf(receiver);
-    // TODO: see if can be replaced with an invariant rule
-    require usds.balanceOf(currentContract) >= totalSupply * chi;
     // Existing set up
     require vat.wards(jug) == 1;
     // Convenience assumptions
@@ -177,6 +187,7 @@ rule invariant_maxRedeem(address owner) {
     require shares > 0;
 
     requireInvariant balanceSum_equals_totalSupply();
+    requireInvariant usdsBalance_greater_or_equal_than_totalAssets();
 
     bytes32 ilk = ilk();
     address vow = vow();
@@ -220,8 +231,6 @@ rule invariant_maxRedeem(address owner) {
     require vat.live() == 1;
     // ERC20 correct behaviour
     require usds.totalSupply() >= usds.balanceOf(currentContract) + usds.balanceOf(receiver);
-    // TODO: see if can be replaced with an invariant rule
-    require usds.balanceOf(currentContract) >= totalSupply * chi;
     // Existing set up
     require vat.wards(jug) == 1;
     // Convenience assumptions
@@ -521,6 +530,8 @@ rule cut(uint256 rad) {
 rule cut_revert(uint256 rad) {
     env e;
 
+    requireInvariant usdsBalance_greater_or_equal_than_totalAssets();
+
     mathint assets = _divup(rad, RAY());
 
     mathint wardsSender = wards(e.msg.sender);
@@ -556,8 +567,6 @@ rule cut_revert(uint256 rad) {
     require vat.live() == 1;
     // ERC20 correct behaviour
     require usdsTotalSupply >= usdsBalanceOfYusds;
-    // TODO: see if can be replaced with an invariant rule
-    require usdsBalanceOfYusds >= totalSupply * chi;
     // Correct behaviour usdsJoin
     require vat.dai(usdsJoin) >= usdsTotalSupply * RAY();
     // Convenience assumptions
@@ -635,6 +644,8 @@ rule drip() {
 rule drip_revert() {
     env e;
 
+    requireInvariant usdsBalance_greater_or_equal_than_totalAssets();
+
     address vow = vow();
 
     uint256 syr = syr();
@@ -665,8 +676,6 @@ rule drip_revert() {
     require vat.live() == 1;
     // ERC20 correct behaviour
     require usdsTotalSupply >= usdsBalanceOfYusds;
-    // TODO: see if can be replaced with an invariant rule
-    require usdsBalanceOfYusds >= totalSupply * chi;
     // Correct behaviour usdsJoin
     require vat.dai(usdsJoin) >= usdsTotalSupply * RAY();
     // Convenience assumptions
@@ -1224,6 +1233,7 @@ rule withdraw_revert(uint256 assets, address receiver, address owner) {
     env e;
 
     requireInvariant balanceSum_equals_totalSupply();
+    requireInvariant usdsBalance_greater_or_equal_than_totalAssets();
 
     bytes32 ilk = ilk();
     address vow = vow();
@@ -1266,8 +1276,6 @@ rule withdraw_revert(uint256 assets, address receiver, address owner) {
     require vat.live() == 1;
     // ERC20 correct behaviour
     require usds.totalSupply() >= usds.balanceOf(currentContract) + usds.balanceOf(receiver);
-    // TODO: see if can be replaced with an invariant rule
-    require usds.balanceOf(currentContract) >= totalSupply * chi;
     // Existing set up
     require vat.wards(jug) == 1;
     // Convenience assumptions
@@ -1298,12 +1306,13 @@ rule withdraw_revert(uint256 assets, address receiver, address owner) {
     bool revert8  = e.block.timestamp > rho && dripDiff * RAY() > max_uint256;
     bool revert9  = balanceOfOwner < sharesCalc;
     bool revert10 = owner != e.msg.sender && allowanceOwnerSender < sharesCalc;
-    bool revert11 = vatIlkArt * vatIlkRate + Due + assets * RAY() > totalSupply * newChiCalc;
+    bool revert11 = totalSupply * newChiCalc > max_uint256;
+    bool revert12 = vatIlkArt * vatIlkRate + Due + assets * RAY() > totalSupply * newChiCalc;
 
     assert lastReverted <=> revert1  || revert2  || revert3 ||
                             revert4  || revert5  || revert6 ||
                             revert7  || revert8  || revert9 ||
-                            revert10 || revert11, "Revert rules failed";
+                            revert10 || revert11 || revert12, "Revert rules failed";
 }
 
 // Verify correct behaviour of maxRedeem getter
@@ -1400,6 +1409,7 @@ rule redeem_revert(uint256 shares, address receiver, address owner) {
     env e;
 
     requireInvariant balanceSum_equals_totalSupply();
+    requireInvariant usdsBalance_greater_or_equal_than_totalAssets();
 
     bytes32 ilk = ilk();
     address vow = vow();
@@ -1445,8 +1455,6 @@ rule redeem_revert(uint256 shares, address receiver, address owner) {
     require vow == jug.vow();
     // ERC20 correct behaviour
     require usds.totalSupply() >= usds.balanceOf(currentContract) + usds.balanceOf(receiver);
-    // TODO: see if can be replaced with an invariant rule
-    require usds.balanceOf(currentContract) >= totalSupply * chi;
     // Existing set up
     require vat.wards(jug) == 1;
     // Convenience assumptions
@@ -1476,12 +1484,13 @@ rule redeem_revert(uint256 shares, address receiver, address owner) {
     bool revert7  = e.block.timestamp > rho && dripDiff * RAY() > max_uint256;
     bool revert8  = balanceOfOwner < shares;
     bool revert9  = owner != e.msg.sender && allowanceOwnerSender < shares;
-    bool revert10 = vatIlkArt * vatIlkRate + Due + assetsCalc * RAY() > totalSupply * newChiCalc;
+    bool revert10 = totalSupply * newChiCalc > max_uint256;
+    bool revert11 = vatIlkArt * vatIlkRate + Due + assetsCalc * RAY() > totalSupply * newChiCalc;
 
     assert lastReverted <=> revert1  || revert2 || revert3 ||
                             revert4  || revert5 || revert6 ||
                             revert7  || revert8 || revert9  ||
-                            revert10, "Revert rules failed";
+                            revert10 || revert11, "Revert rules failed";
 }
 
 // Verify correct storage changes for non reverting permit
