@@ -74,7 +74,7 @@ contract YUsds is UUPSUpgradeable {
     uint192 public chi;   // The Rate Accumulator  [ray]
     uint64  public rho;   // Time of last drip     [unix epoch time]
     uint256 public syr;   // The USDS Savings Rate [ray]
-    uint256 public cap;   // Borrow ceiling        [rad]
+    uint256 public bCap;  // Borrow max ceiling    [rad]
 
     // --- Constants ---
 
@@ -238,8 +238,8 @@ contract YUsds is UUPSUpgradeable {
             require(data >= RAY, "YUsds/wrong-syr-value");
             require(rho == block.timestamp, "YUsds/chi-not-up-to-date");
             syr = data;
-        } else if (what == "cap") {
-            cap = data;
+        } else if (what == "bCap") {
+            bCap = data;
         } else revert("YUsds/file-unrecognized-param");
         emit File(what, data);
     }
@@ -257,7 +257,7 @@ contract YUsds is UUPSUpgradeable {
     // --- Set ilk debt ceiling ---
 
     function _setLine() internal {
-        vat.file(ilk, "line", _min(cap, _subcap(totalSupply * chi, clip.Due())));
+        vat.file(ilk, "line", _min(bCap, _subcap(totalSupply * chi, clip.Due())));
         // TODO: define if we want to update the vat.Line as well (quite probably yes)
     }
 

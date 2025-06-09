@@ -17,7 +17,7 @@ methods {
     function chi() external returns (uint192) envfree;
     function rho() external returns (uint64) envfree;
     function syr() external returns (uint256) envfree;
-    function cap() external returns (uint256) envfree;
+    function bCap() external returns (uint256) envfree;
     // immutables
     function usds() external returns (address) envfree;
     function vow() external returns (address) envfree;
@@ -312,7 +312,7 @@ rule storageAffected(method f) filtered { f -> f.selector != sig:upgradeToAndCal
     mathint chiBefore = chi();
     mathint rhoBefore = rho();
     mathint syrBefore = syr();
-    mathint capBefore = cap();
+    mathint bCapBefore = bCap();
 
     calldataarg args;
     f(e, args);
@@ -325,7 +325,7 @@ rule storageAffected(method f) filtered { f -> f.selector != sig:upgradeToAndCal
     mathint chiAfter = chi();
     mathint rhoAfter = rho();
     mathint syrAfter = syr();
-    mathint capAfter = cap();
+    mathint bCapAfter = bCap();
 
     assert wardsAfter != wardsBefore             => f.selector == sig:initialize().selector ||
                                                     f.selector == sig:rely(address).selector ||
@@ -372,7 +372,7 @@ rule storageAffected(method f) filtered { f -> f.selector != sig:upgradeToAndCal
                                                     f.selector == sig:redeem(uint256,address,address).selector, "Assert 7";
     assert syrAfter != syrBefore                 => f.selector == sig:initialize().selector ||
                                                     f.selector == sig:file(bytes32,uint256).selector, "Assert 8";
-    assert capAfter != capBefore                 => f.selector == sig:file(bytes32,uint256).selector, "Assert 9";
+    assert bCapAfter != bCapBefore               => f.selector == sig:file(bytes32,uint256).selector, "Assert 9";
 }
 
 // Verify correct storage changes for non reverting rely
@@ -444,17 +444,17 @@ rule file(bytes32 what, uint256 data) {
     env e;
 
     uint256 syrBefore = syr();
-    uint256 capBefore = cap();
+    uint256 bCapBefore = bCap();
 
     file(e, what, data);
 
     uint256 syrAfter = syr();
-    uint256 capAfter = cap();
+    uint256 bCapAfter = bCap();
 
     assert what == to_bytes32(0x7379720000000000000000000000000000000000000000000000000000000000) => syrAfter == data, "Assert 1";
     assert what != to_bytes32(0x7379720000000000000000000000000000000000000000000000000000000000) => syrAfter == syrBefore, "Assert 2";
-    assert what == to_bytes32(0x6361700000000000000000000000000000000000000000000000000000000000) => capAfter == data, "Assert 3";
-    assert what != to_bytes32(0x6361700000000000000000000000000000000000000000000000000000000000) => capAfter == capBefore, "Assert 4";
+    assert what == to_bytes32(0x6361700000000000000000000000000000000000000000000000000000000000) => bCapAfter == data, "Assert 3";
+    assert what != to_bytes32(0x6361700000000000000000000000000000000000000000000000000000000000) => bCapAfter == bCapBefore, "Assert 4";
 }
 
 // Verify revert rules on file
@@ -486,7 +486,7 @@ rule cut(uint256 rad) {
     mathint assets = _divup(rad, RAY());
 
     bytes32 ilk = ilk();
-    mathint cap = cap();
+    mathint bCap = bCap();
     address vow = vow();
 
     mathint chiBefore = chi();
@@ -504,7 +504,7 @@ rule cut(uint256 rad) {
 
     mathint chiDripCalc = defNewChi(e);
     mathint newChiCalc = totalAssetsBefore > 0 ? chiDripCalc * _subcap(totalAssetsBefore, assets) / totalAssetsBefore : 0;
-    mathint lineCalc = _min(cap, _subcap(totalSupply * newChiCalc, Due));
+    mathint lineCalc = _min(bCap, _subcap(totalSupply * newChiCalc, Due));
 
     mathint dripDiff = totalSupply * chiDripCalc / RAY() - totalSupply * chiBefore / RAY();
 
@@ -604,7 +604,7 @@ rule drip() {
     env e;
 
     bytes32 ilk = ilk();
-    mathint cap = cap();
+    mathint bCap = bCap();
     address vow = vow();
 
     mathint chiBefore = chi();
@@ -620,7 +620,7 @@ rule drip() {
     require usdsTotalSupplyBefore >= usdsBalanceOfYusdsBefore;
 
     mathint newChiCalc = defNewChi(e);
-    mathint lineCalc = _min(cap, _subcap(totalSupply * newChiCalc, Due));
+    mathint lineCalc = _min(bCap, _subcap(totalSupply * newChiCalc, Due));
 
     mathint dripDiff = totalSupply * newChiCalc / RAY() - totalSupply * chiBefore / RAY();
 
@@ -902,10 +902,10 @@ rule deposit(uint256 assets, address receiver, uint16 referral) {
     mathint usdsBalanceOfYUsdsBefore = usds.balanceOf(currentContract);
     mathint usdsBalanceOfSenderBefore = usds.balanceOf(e.msg.sender);
 
-    mathint cap = cap();
+    mathint bCap = bCap();
     mathint newChiCalc = defNewChi(e);
     mathint sharesCalc = defConvertToShares(e, assets);
-    mathint lineCalc = _min(cap, _subcap((totalSupplyBefore + sharesCalc) * newChiCalc, Due));
+    mathint lineCalc = _min(bCap, _subcap((totalSupplyBefore + sharesCalc) * newChiCalc, Due));
 
     mathint dripDiffCalc = totalSupplyBefore * newChiCalc / RAY() - totalSupplyBefore * chi() / RAY();
 
@@ -1039,10 +1039,10 @@ rule mint(uint256 shares, address receiver, uint16 referral) {
     mathint usdsBalanceOfYUsdsBefore = usds.balanceOf(currentContract);
     mathint usdsBalanceOfSenderBefore = usds.balanceOf(e.msg.sender);
 
-    mathint cap = cap();
+    mathint bCap = bCap();
     mathint newChiCalc = defNewChi(e);
     mathint assetsCalc = _divup(shares * newChiCalc, RAY());
-    mathint lineCalc = _min(cap, _subcap((totalSupplyBefore + shares) * newChiCalc, Due));
+    mathint lineCalc = _min(bCap, _subcap((totalSupplyBefore + shares) * newChiCalc, Due));
 
     mathint dripDiffCalc = totalSupplyBefore * newChiCalc / RAY() - totalSupplyBefore * chi() / RAY();
 
@@ -1195,10 +1195,10 @@ rule withdraw(uint256 assets, address receiver, address owner) {
     mathint usdsBalanceOfYUsdsBefore = usds.balanceOf(currentContract);
     mathint usdsBalanceOfReceiverBefore = usds.balanceOf(receiver);
 
-    mathint cap = cap();
+    mathint bCap = bCap();
     mathint newChiCalc = defNewChi(e);
     mathint sharesCalc = newChiCalc > 0 ? _divup(assets * RAY(), newChiCalc) : 0; // Else path won't be evaluated as should revert
-    mathint lineCalc = _min(cap, _subcap((totalSupplyBefore - sharesCalc) * newChiCalc, Due));
+    mathint lineCalc = _min(bCap, _subcap((totalSupplyBefore - sharesCalc) * newChiCalc, Due));
 
     mathint dripDiffCalc = totalSupplyBefore * newChiCalc / RAY() - totalSupplyBefore * chi() / RAY();
 
@@ -1371,10 +1371,10 @@ rule redeem(uint256 shares, address receiver, address owner) {
     mathint usdsBalanceOfYUsdsBefore = usds.balanceOf(currentContract);
     mathint usdsBalanceOfReceiverBefore = usds.balanceOf(receiver);
 
-    mathint cap = cap();
+    mathint bCap = bCap();
     mathint newChiCalc = defNewChi(e);
     mathint assetsCalc = defConvertToAssets(e, shares);
-    mathint lineCalc = _min(cap, _subcap((totalSupplyBefore - shares) * newChiCalc, Due));
+    mathint lineCalc = _min(bCap, _subcap((totalSupplyBefore - shares) * newChiCalc, Due));
 
     mathint dripDiffCalc = totalSupplyBefore * newChiCalc / RAY() - totalSupplyBefore * chi() / RAY();
 

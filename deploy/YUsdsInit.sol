@@ -38,7 +38,7 @@ interface UsdsJoinLike {
 struct YUsdsConfig {
     address clip;
     uint256 syr;
-    uint256 cap;
+    uint256 bCap;
 }
 
 library YUsdsInit {
@@ -66,7 +66,7 @@ library YUsdsInit {
 
         YUsdsLike(instance.yUsds).drip();
         YUsdsLike(instance.yUsds).file("syr", cfg.syr);
-        YUsdsLike(instance.yUsds).file("cap", cfg.cap);
+        YUsdsLike(instance.yUsds).file("bCap", cfg.bCap);
 
         dss.chainlog.setAddress("YUSDS",     instance.yUsds);
         dss.chainlog.setAddress("YUSDS_IMP", instance.yUsdsImp);
