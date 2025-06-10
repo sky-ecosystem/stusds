@@ -74,6 +74,7 @@ contract YUsds is UUPSUpgradeable {
     uint192 public chi;   // The Rate Accumulator  [ray]
     uint64  public rho;   // Time of last drip     [unix epoch time]
     uint256 public syr;   // The USDS Savings Rate [ray]
+    uint256 public sCap;  // Supply max deposits   [wad]
     uint256 public bCap;  // Borrow max ceiling    [rad]
 
     // --- Constants ---
@@ -238,6 +239,8 @@ contract YUsds is UUPSUpgradeable {
             require(data >= RAY, "YUsds/wrong-syr-value");
             require(rho == block.timestamp, "YUsds/chi-not-up-to-date");
             syr = data;
+        } else if (what == "sCap") {
+            sCap = data;
         } else if (what == "bCap") {
             bCap = data;
         } else revert("YUsds/file-unrecognized-param");
@@ -340,13 +343,15 @@ contract YUsds is UUPSUpgradeable {
 
     function _mint(uint256 assets, uint256 shares, address receiver) internal {
         require(receiver != address(0) && receiver != address(this), "YUsds/invalid-address");
+        uint256 totalSupply_ = totalSupply;
+        require(totalSupply_ * chi / RAY + assets <= sCap, "YUsds/mint-over-supply-cap");
 
         usds.transferFrom(msg.sender, address(this), assets);
 
         unchecked {
             balanceOf[receiver] = balanceOf[receiver] + shares; // note: we don't need an overflow check here b/c balanceOf[receiver] <= totalSupply
         }
-        totalSupply = totalSupply + shares;
+        totalSupply = totalSupply_ + shares;
 
         _setLine();
 
@@ -406,8 +411,10 @@ contract YUsds is UUPSUpgradeable {
         return shares * chi_ / RAY;
     }
 
-    function maxDeposit(address) external pure returns (uint256) {
-        return type(uint256).max;
+    function maxDeposit(address) external view returns (uint256) {
+        // TODO: define if we prefer to return type(uint256).max if sCap is set to that value
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
+        return _subcap(sCap, totalSupply * chi_ / RAY);
     }
 
     function previewDeposit(uint256 assets) external view returns (uint256) {
@@ -424,8 +431,10 @@ contract YUsds is UUPSUpgradeable {
         emit Referral(referral, receiver, assets, shares);
     }
 
-    function maxMint(address) external pure returns (uint256) {
-        return type(uint256).max;
+    function maxMint(address) external view returns (uint256) {
+        // TODO: define if we prefer to return type(uint256).max if sCap is set to that value
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
+        return _subcap(sCap, totalSupply * chi_ / RAY) * RAY / chi_;
     }
 
     function previewMint(uint256 shares) external view returns (uint256) {

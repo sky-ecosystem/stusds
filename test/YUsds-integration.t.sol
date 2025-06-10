@@ -110,6 +110,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         YUsdsConfig memory conf = YUsdsConfig({
             clip: address(clip),
             syr: 1000000001547125957863212448,
+            sCap: type(uint256).max,
             bCap: type(uint256).max
         });
         vm.warp(block.timestamp + 10);
@@ -158,6 +159,12 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         // Note: _divup(0,0) will return 0 differing from natural solidity division
         unchecked {
             z = x != 0 ? ((x - 1) / y) + 1 : 0;
+        }
+    }
+
+    function _subcap(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        unchecked {
+            z = x > y ? x - y : 0;
         }
     }
 
@@ -1143,6 +1150,52 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(usds.balanceOf(address(token)), usdsBalanceToken + diff1 + diff2 + depositAmount - 4 * withdrawAmount - rAssets);
     }
 
+    function testMaxDepositMint(
+        uint256 sCap,
+        uint256 depositAmount,
+        uint256 warp
+    ) public {
+        sCap = bound(sCap, 2_000 ether, 1_000_000 ether);
+        vm.prank(pauseProxy); token.file("sCap", sCap);
+
+        warp = bound(warp, 0, 10 days);
+
+        chiLast = ((block.timestamp + warp) > token.rho()) ? _rpow(token.syr(), (block.timestamp + warp) - token.rho()) * token.chi() / RAY : token.chi();
+
+        depositAmount = bound(depositAmount, 0, _subcap(sCap, token.totalSupply() * chiLast));
+        depositAmount = depositAmount * token.chi() / chiLast;
+
+        deal(address(usds), address(this), 100_000_000 ether);
+        usds.approve(address(token), 100_000_000 ether);
+        token.deposit(depositAmount, address(this));
+
+        vm.warp(block.timestamp + warp);
+
+        uint256 maxDeposit = token.maxDeposit(address(0));
+        uint256 maxMint = token.maxMint(address(0));
+
+        assertEq(maxDeposit, _subcap(token.sCap(), token.totalAssets()));
+        assertEq(maxMint, _subcap(token.sCap(), token.totalAssets()) * RAY / chiLast);
+
+        vm.expectRevert("YUsds/mint-over-supply-cap");
+        token.deposit(maxDeposit + 1, address(this));
+
+        vm.expectRevert("YUsds/mint-over-supply-cap");
+        token.mint(maxMint + 1, address(this));
+
+        uint256 id = vm.snapshot();
+
+        token.deposit(maxDeposit, address(this));
+        assertLe(token.maxDeposit(address(0)), 1);
+        assertEq(token.maxMint(address(0)), 0);
+
+        vm.revertTo(id);
+
+        token.mint(maxMint, address(this));
+        assertLe(token.maxDeposit(address(this)), 1);
+        assertEq(token.maxMint(address(this)), 0);
+    }
+
     function testMaxWithdrawRedeem(
         uint256 depositAmount,
         uint256 rate,
@@ -1174,13 +1227,13 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(maxWithdraw1, token.convertToAssets(token.balanceOf(address(0x222))));
         assertEq(maxRedeem1, token.balanceOf(address(0x222)));
 
-        uint256 id = vm.snapshot();
-
         vm.expectRevert("YUsds/insufficient-balance");
         vm.prank(address(0x222)); token.withdraw(maxWithdraw1 + 1, address(0x222), address(0x222));
 
         vm.expectRevert("YUsds/insufficient-balance");
         vm.prank(address(0x222)); token.redeem(maxRedeem1 + 1, address(0x222), address(0x222));
+
+        uint256 id = vm.snapshot();
 
         vm.prank(address(0x222)); token.withdraw(maxWithdraw1, address(0x222), address(0x222));
         assertEq(token.maxWithdraw(address(0x222)), 0);

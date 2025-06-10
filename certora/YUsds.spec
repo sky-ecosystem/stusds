@@ -17,6 +17,7 @@ methods {
     function chi() external returns (uint192) envfree;
     function rho() external returns (uint64) envfree;
     function syr() external returns (uint256) envfree;
+    function sCap() external returns (uint256) envfree;
     function bCap() external returns (uint256) envfree;
     // immutables
     function usds() external returns (address) envfree;
@@ -312,6 +313,7 @@ rule storageAffected(method f) filtered { f -> f.selector != sig:upgradeToAndCal
     mathint chiBefore = chi();
     mathint rhoBefore = rho();
     mathint syrBefore = syr();
+    mathint sCapBefore = sCap();
     mathint bCapBefore = bCap();
 
     calldataarg args;
@@ -325,6 +327,7 @@ rule storageAffected(method f) filtered { f -> f.selector != sig:upgradeToAndCal
     mathint chiAfter = chi();
     mathint rhoAfter = rho();
     mathint syrAfter = syr();
+    mathint sCapAfter = sCap();
     mathint bCapAfter = bCap();
 
     assert wardsAfter != wardsBefore             => f.selector == sig:initialize().selector ||
@@ -372,7 +375,8 @@ rule storageAffected(method f) filtered { f -> f.selector != sig:upgradeToAndCal
                                                     f.selector == sig:redeem(uint256,address,address).selector, "Assert 7";
     assert syrAfter != syrBefore                 => f.selector == sig:initialize().selector ||
                                                     f.selector == sig:file(bytes32,uint256).selector, "Assert 8";
-    assert bCapAfter != bCapBefore               => f.selector == sig:file(bytes32,uint256).selector, "Assert 9";
+    assert sCapAfter != sCapBefore               => f.selector == sig:file(bytes32,uint256).selector, "Assert 9";
+    assert bCapAfter != bCapBefore               => f.selector == sig:file(bytes32,uint256).selector, "Assert 10";
 }
 
 // Verify correct storage changes for non reverting rely
@@ -444,17 +448,21 @@ rule file(bytes32 what, uint256 data) {
     env e;
 
     uint256 syrBefore = syr();
+    uint256 sCapBefore = sCap();
     uint256 bCapBefore = bCap();
 
     file(e, what, data);
 
     uint256 syrAfter = syr();
+    uint256 sCapAfter = sCap();
     uint256 bCapAfter = bCap();
 
     assert what == to_bytes32(0x7379720000000000000000000000000000000000000000000000000000000000) => syrAfter == data, "Assert 1";
     assert what != to_bytes32(0x7379720000000000000000000000000000000000000000000000000000000000) => syrAfter == syrBefore, "Assert 2";
-    assert what == to_bytes32(0x6243617000000000000000000000000000000000000000000000000000000000) => bCapAfter == data, "Assert 3";
-    assert what != to_bytes32(0x6243617000000000000000000000000000000000000000000000000000000000) => bCapAfter == bCapBefore, "Assert 4";
+    assert what == to_bytes32(0x7343617000000000000000000000000000000000000000000000000000000000) => sCapAfter == data, "Assert 3";
+    assert what != to_bytes32(0x7343617000000000000000000000000000000000000000000000000000000000) => sCapAfter == sCapBefore, "Assert 4";
+    assert what == to_bytes32(0x6243617000000000000000000000000000000000000000000000000000000000) => bCapAfter == data, "Assert 5";
+    assert what != to_bytes32(0x6243617000000000000000000000000000000000000000000000000000000000) => bCapAfter == bCapBefore, "Assert 6";
 }
 
 // Verify revert rules on file
@@ -469,6 +477,7 @@ rule file_revert(bytes32 what, uint256 data) {
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
     bool revert3 = what != to_bytes32(0x7379720000000000000000000000000000000000000000000000000000000000) &&
+                   what != to_bytes32(0x7343617000000000000000000000000000000000000000000000000000000000) &&
                    what != to_bytes32(0x6243617000000000000000000000000000000000000000000000000000000000);
     bool revert4 = what == to_bytes32(0x7379720000000000000000000000000000000000000000000000000000000000) &&
                    data < RAY();
@@ -503,7 +512,7 @@ rule cut(uint256 rad) {
     require usdsTotalSupplyBefore >= usdsBalanceOfYusdsBefore;
 
     mathint chiDripCalc = defNewChi(e);
-    mathint newChiCalc = totalAssetsBefore > 0 ? chiDripCalc * _subcap(totalAssetsBefore, assets) / totalAssetsBefore : 0;
+    mathint newChiCalc = totalAssetsBefore > 0 ? chiDripCalc * _subcap(totalAssetsBefore, assets) / totalAssetsBefore : 0; // Else path won't be evaluated as should revert
     mathint lineCalc = _min(bCap, _subcap(totalSupply * newChiCalc, Due));
 
     mathint dripDiff = totalSupply * chiDripCalc / RAY() - totalSupply * chiBefore / RAY();
@@ -869,9 +878,11 @@ rule convertToAssets(uint256 shares) {
 rule maxDeposit(address anyAddr) {
     env e;
 
+    mathint assetsCalc = _subcap(sCap(), totalSupply() * defNewChi(e) / RAY());
+
     mathint assets = maxDeposit(e, anyAddr);
 
-    assert assets == max_uint256, "Assert 1";
+    assert assets == assetsCalc, "Assert 1";
 }
 
 // Verify correct behaviour of previewDeposit getter
@@ -946,6 +957,7 @@ rule deposit_revert(uint256 assets, address receiver, uint16 referral) {
     uint256 syr = syr();
     mathint rho = rho();
     mathint chi = chi();
+    mathint sCap = sCap();
 
     // Blockchain behaviour
     require e.block.timestamp >= rho();
@@ -993,21 +1005,25 @@ rule deposit_revert(uint256 assets, address receiver, uint16 referral) {
     bool revert7  = e.block.timestamp > rho && totalSupply * chi > max_uint256;
     bool revert8  = e.block.timestamp > rho && dripDiff * RAY() > max_uint256;
     bool revert9  = receiver == 0 || receiver == currentContract;
-    bool revert10 = (totalSupply + sharesCalc) * newChiCalc > max_uint256;
+    bool revert10 = totalSupply * newChiCalc / RAY() + assets > sCap;
+    bool revert11 = (totalSupply + sharesCalc) * newChiCalc > max_uint256;
 
-    assert lastReverted <=> revert1 || revert2 || revert3 ||
-                            revert4 || revert5 || revert6 ||
-                            revert7 || revert8 || revert9 ||
-                            revert10, "Revert rules failed";
+    assert lastReverted <=> revert1  || revert2 || revert3 ||
+                            revert4  || revert5 || revert6 ||
+                            revert7  || revert8 || revert9 ||
+                            revert10 || revert11, "Revert rules failed";
 }
 
 // Verify correct behaviour of maxMint getter
 rule maxMint(address anyAddr) {
     env e;
 
+    mathint newChiCalc = defNewChi(e);
+    mathint sharesCalc = newChiCalc > 0 ? _subcap(sCap(), totalSupply() * newChiCalc / RAY()) * RAY() / newChiCalc : 0; // Else path won't be evaluated as should revert
+
     mathint shares = maxMint(e, anyAddr);
 
-    assert shares == max_uint256, "Assert 1";
+    assert shares == sharesCalc, "Assert 1";
 }
 
 // Verify correct behaviour of previewMint getter
@@ -1083,6 +1099,7 @@ rule mint_revert(uint256 shares, address receiver, uint16 referral) {
     uint256 syr = syr();
     mathint rho = rho();
     mathint chi = chi();
+    mathint sCap = sCap();
 
     // Blockchain behaviour
     require e.block.timestamp >= rho();
@@ -1130,12 +1147,13 @@ rule mint_revert(uint256 shares, address receiver, uint16 referral) {
     bool revert7  = e.block.timestamp > rho && dripDiff * RAY() > max_uint256;
     bool revert8  = receiver == 0 || receiver == currentContract;
     bool revert9  = totalSupply + shares > max_uint256;
-    bool revert10 = (totalSupply + shares) * newChiCalc > max_uint256;
+    bool revert10 = totalSupply * newChiCalc / RAY() + assetsCalc > sCap;
+    bool revert11 = (totalSupply + shares) * newChiCalc > max_uint256;
 
-    assert lastReverted <=> revert1 || revert2 || revert3 ||
-                            revert4 || revert5 || revert6 ||
-                            revert7 || revert8 || revert9 ||
-                            revert10, "Revert rules failed";
+    assert lastReverted <=> revert1  || revert2 || revert3 ||
+                            revert4  || revert5 || revert6 ||
+                            revert7  || revert8 || revert9 ||
+                            revert10 || revert11, "Revert rules failed";
 }
 
 // Verify correct behaviour of maxWithdraw getter
