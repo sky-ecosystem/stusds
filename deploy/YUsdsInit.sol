@@ -55,9 +55,8 @@ library YUsdsInit {
         require(keccak256(abi.encodePacked(YUsdsLike(instance.yUsds).version())) == keccak256(abi.encodePacked("1")), "YUsdsInit/version-does-not-match");
         require(YUsdsLike(instance.yUsds).getImplementation() == instance.yUsdsImp, "YUsdsInit/imp-does-not-match");
 
-        require(YUsdsLike(instance.yUsds).vat()      == address(dss.vat),                     "YUsdsInit/vat-does-not-match");
-        require(YUsdsLike(instance.yUsds).jug()      == address(dss.jug),                     "YUsdsInit/jug-does-not-match");
         require(YUsdsLike(instance.yUsds).usdsJoin() == dss.chainlog.getAddress("USDS_JOIN"), "YUsdsInit/usdsJoin-does-not-match");
+        require(YUsdsLike(instance.yUsds).jug()      == address(dss.jug),                     "YUsdsInit/jug-does-not-match");
         require(YUsdsLike(instance.yUsds).clip()     == cfg.clip,                             "YUsdsInit/usdsJoin-does-not-match");
         require(YUsdsLike(instance.yUsds).vow()      == address(dss.vow),                     "YUsdsInit/vow-does-not-match");
 
