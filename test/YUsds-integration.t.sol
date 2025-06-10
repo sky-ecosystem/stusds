@@ -433,12 +433,12 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         (,,, line3,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line3, line2 + 1e45, 0.00000000000000001e45);
 
-        clip.setDue(0.5e45);
+        clip.setDue(0.3e45);
 
         token.deposit(1e18, address(0xBEEF));
 
         (,,, line4,) = dss.vat.ilks(token.ilk());
-        assertApproxEqAbs(line4, line3 + 0.5e45, 0.00000000000000001e45); // Reduced by ongoing auction debt
+        assertApproxEqAbs(line4, line3 + 0.7e45, 0.00000000000000001e45); // Reduced by ongoing auction debt
 
         vm.prank(pauseProxy); token.file("bCap", line4 + 0.2e45);
 
@@ -521,12 +521,12 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         (,,, line3,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line3, line2 + 1e45, RAY);
 
-        clip.setDue(0.5e45);
+        clip.setDue(0.3e45);
 
         token.mint(pie, address(0xBEEF));
 
         (,,, line4,) = dss.vat.ilks(token.ilk());
-        assertApproxEqAbs(line4, line3 + 0.5e45, 0.00000000000000001e45); // Reduced by ongoing auction debt
+        assertApproxEqAbs(line4, line3 + 0.7e45, 0.00000000000000001e45); // Reduced by ongoing auction debt
 
         vm.prank(pauseProxy); token.file("bCap", line4 + 0.2e45);
 
@@ -686,12 +686,12 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         (,,, line3,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line3, line2 - 1e45, 0.00000000000000001e45);
 
-        clip.setDue(0.5e45);
+        clip.setDue(0.3e45);
 
         vm.prank(address(0xBEEF)); token.withdraw(1e18, address(0xAAA), address(0xBEEF));
 
         (,,, line4,) = dss.vat.ilks(token.ilk());
-        assertApproxEqAbs(line4, line3 - 1e45 - 0.5e45, 0.00000000000000001e45); // Also reduced by ongoing auction debt
+        assertApproxEqAbs(line4, line3 - 1.3e45, 0.00000000000000001e45); // Also reduced by ongoing auction debt
 
         vm.prank(pauseProxy); token.file("bCap", line4 - 2e45);
 
