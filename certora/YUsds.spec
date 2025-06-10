@@ -91,6 +91,160 @@ invariant usdsBalance_greater_or_equal_than_totalAssets() usds.balanceOf(current
             }
 }
 
+rule invariant_maxDeposit() {
+    env e;
+
+    address random;
+    uint256 assets = maxDeposit(e, random);
+    require assets > 0;
+
+    requireInvariant balanceSum_equals_totalSupply();
+
+    bytes32 ilk = ilk();
+    address vow = vow();
+
+    uint256 syr = syr();
+    mathint rho = rho();
+    mathint chi = chi();
+
+    uint256 jugDuty; mathint jugRho;
+    jugDuty, jugRho = jug.ilks(ilk);
+
+    // Blockchain behaviour
+    require e.block.timestamp >= rho();
+
+    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint newChiCalc = defNewChi(e);
+    mathint sharesCalc = defConvertToShares(e, assets);
+
+    mathint totalSupply = totalSupply();
+
+    mathint dripDiff = totalSupply * newChiCalc / RAY() - totalSupply * chi / RAY();
+
+    // Happening in initialize
+    require vat.can(currentContract, usdsJoin) == 1;
+    // Happening in init scripts
+    require vat.wards(currentContract) == 1;
+    // Vat is functional
+    require vat.live() == 1;
+    // ERC20 correct behaviour
+    require usds.totalSupply() >= usds.balanceOf(currentContract) + usds.balanceOf(e.msg.sender);
+    // Convenience assumptions
+    require usds.totalSupply() + dripDiff <= max_uint256;
+    require vat.dai(currentContract) + dripDiff * RAY() <= max_uint256;
+    require vat.sin(vow) + dripDiff * RAY() <= max_uint256;
+    require vat.vice() + dripDiff * RAY() <= max_uint256;
+    require vat.debt() + dripDiff * RAY() <= max_uint256;
+    require vat.dai(usdsJoin) + dripDiff * RAY() <= max_uint256;
+    // Sender assumptions
+    require usds.allowance(e.msg.sender, currentContract) >= assets;
+    require usds.balanceOf(e.msg.sender) >= assets;
+
+    // Avoid known revert conditions excepting sCap limit that we want to prove maxDeposit is correctly verifying:
+    require e.msg.value == 0;
+    require assets * RAY() <= max_uint256;
+    require chi > 0 && newChiCalc > 0;
+    require e.block.timestamp == rho || rpowRes * chi <= max_uint256;
+    require e.block.timestamp == rho || dripDiff >= 0;
+    require e.block.timestamp == rho || totalSupply * newChiCalc <= max_uint256;
+    require e.block.timestamp == rho || totalSupply * chi <= max_uint256;
+    require e.block.timestamp == rho || dripDiff * RAY() <= max_uint256;
+    address receiver;
+    require receiver != 0 && receiver != currentContract;
+    require (totalSupply + sharesCalc) * newChiCalc <= max_uint256;
+
+    bool passReferral;
+    if (passReferral) {
+        uint16 referral;
+        deposit@withrevert(e, assets, receiver, referral);
+    } else {
+        deposit@withrevert(e, assets, receiver);
+    }
+    bool lastRevertedValue = lastReverted;
+
+    mathint assetsAfter = maxDeposit(e, random);
+
+    assert !lastRevertedValue, "Assert 1";
+    assert assetsAfter <= newChiCalc / RAY() + 1, "Assert 2";
+}
+
+rule invariant_maxMint() {
+    env e;
+
+    address random;
+    uint256 shares = maxMint(e, random);
+    require shares > 0;
+
+    requireInvariant balanceSum_equals_totalSupply();
+
+    bytes32 ilk = ilk();
+    address vow = vow();
+
+    uint256 syr = syr();
+    mathint rho = rho();
+    mathint chi = chi();
+
+    uint256 jugDuty; mathint jugRho;
+    jugDuty, jugRho = jug.ilks(ilk);
+
+    // Blockchain behaviour
+    require e.block.timestamp >= rho();
+
+    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint newChiCalc = defNewChi(e);
+    mathint assetsCalc = _divup(shares * newChiCalc, RAY());
+
+    mathint totalSupply = totalSupply();
+
+    mathint dripDiff = totalSupply * newChiCalc / RAY() - totalSupply * chi / RAY();
+
+    // Happening in initialize
+    require vat.can(currentContract, usdsJoin) == 1;
+    // Happening in init scripts
+    require vat.wards(currentContract) == 1;
+    // Vat is functional
+    require vat.live() == 1;
+    // ERC20 correct behaviour
+    require usds.totalSupply() >= usds.balanceOf(currentContract) + usds.balanceOf(e.msg.sender);
+    // Convenience assumptions
+    require usds.totalSupply() + dripDiff <= max_uint256;
+    require vat.dai(currentContract) + dripDiff * RAY() <= max_uint256;
+    require vat.sin(vow) + dripDiff * RAY() <= max_uint256;
+    require vat.vice() + dripDiff * RAY() <= max_uint256;
+    require vat.debt() + dripDiff * RAY() <= max_uint256;
+    require vat.dai(usdsJoin) + dripDiff * RAY() <= max_uint256;
+    // Sender assumptions
+    require usds.allowance(e.msg.sender, currentContract) >= assetsCalc;
+    require usds.balanceOf(e.msg.sender) >= assetsCalc;
+
+    // Avoid known revert conditions excepting sCap limit that we want to prove maxMint is correctly verifying:
+    require e.msg.value == 0;
+    require shares * newChiCalc <= max_uint256;
+    require e.block.timestamp == rho || rpowRes * chi <= max_uint256;
+    require e.block.timestamp == rho || dripDiff >= 0;
+    require e.block.timestamp == rho || totalSupply * newChiCalc <= max_uint256;
+    require e.block.timestamp == rho || totalSupply * chi <= max_uint256;
+    require e.block.timestamp == rho || dripDiff * RAY() <= max_uint256;
+    address receiver;
+    require receiver != 0 && receiver != currentContract;
+    require totalSupply + shares <= max_uint256;
+    require (totalSupply + shares) * newChiCalc <= max_uint256;
+
+    bool passReferral;
+    if (passReferral) {
+        uint16 referral;
+        mint@withrevert(e, shares, receiver, referral);
+    } else {
+        mint@withrevert(e, shares, receiver);
+    }
+    bool lastRevertedValue = lastReverted;
+
+    mathint sharesAfter = maxMint(e, random);
+
+    assert !lastRevertedValue, "Assert 1";
+    assert sharesAfter <= RAY() / newChiCalc + 1, "Assert 2";
+}
+
 rule invariant_maxWithdraw(address owner) {
     env e;
 
