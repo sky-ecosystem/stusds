@@ -173,7 +173,7 @@ rule invariant_maxMint() {
 
     address random;
     uint256 shares = maxMint(e, random);
-    require shares > 0;
+    require shares > 0 && shares < max_uint256;
 
     requireInvariant balanceSum_equals_totalSupply();
 
@@ -1032,7 +1032,7 @@ rule convertToAssets(uint256 shares) {
 rule maxDeposit(address anyAddr) {
     env e;
 
-    mathint assetsCalc = _subcap(sCap(), totalSupply() * defNewChi(e) / RAY());
+    mathint assetsCalc = sCap() == max_uint256 ? max_uint256 : _subcap(sCap(), totalSupply() * defNewChi(e) / RAY());
 
     mathint assets = maxDeposit(e, anyAddr);
 
@@ -1173,7 +1173,9 @@ rule maxMint(address anyAddr) {
     env e;
 
     mathint newChiCalc = defNewChi(e);
-    mathint sharesCalc = newChiCalc > 0 ? _subcap(sCap(), totalSupply() * newChiCalc / RAY()) * RAY() / newChiCalc : 0; // Else path won't be evaluated as should revert
+    mathint sharesCalc = sCap() == max_uint256
+                         ? max_uint256
+                         : (newChiCalc > 0 ? _subcap(sCap(), totalSupply() * newChiCalc / RAY()) * RAY() / newChiCalc : 0); // Else path won't be evaluated as should revert
 
     mathint shares = maxMint(e, anyAddr);
 

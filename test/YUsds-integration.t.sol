@@ -1194,6 +1194,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         token.mint(maxMint, address(this));
         assertLe(token.maxDeposit(address(this)), 1);
         assertEq(token.maxMint(address(this)), 0);
+
+        vm.prank(pauseProxy); token.file("sCap", type(uint256).max);
+        assertEq(token.maxDeposit(address(0)), type(uint256).max);
+        assertEq(token.maxMint(address(0)), type(uint256).max);
     }
 
     function testMaxWithdrawRedeem(

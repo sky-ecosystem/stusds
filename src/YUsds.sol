@@ -412,9 +412,13 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function maxDeposit(address) external view returns (uint256) {
-        // TODO: define if we prefer to return type(uint256).max if sCap is set to that value
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
-        return _subcap(sCap, totalSupply * chi_ / RAY);
+        uint256 sCap_ = sCap;
+        if (sCap_ < type(uint256).max) {
+            uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
+            return _subcap(sCap_, totalSupply * chi_ / RAY);
+        } else {
+            return type(uint256).max;
+        }
     }
 
     function previewDeposit(uint256 assets) external view returns (uint256) {
@@ -432,9 +436,13 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function maxMint(address) external view returns (uint256) {
-        // TODO: define if we prefer to return type(uint256).max if sCap is set to that value
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
-        return _subcap(sCap, totalSupply * chi_ / RAY) * RAY / chi_;
+        uint256 sCap_ = sCap;
+        if (sCap_ < type(uint256).max) {
+            uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
+            return _subcap(sCap_, totalSupply * chi_ / RAY) * RAY / chi_;
+        } else {
+            return type(uint256).max;
+        }
     }
 
     function previewMint(uint256 shares) external view returns (uint256) {
