@@ -87,7 +87,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     YUsds token;
     bool validate;
 
-    event Drip(uint256 chi, uint256 diff1);
+    event Drip(uint256 chi, uint256 diff);
     event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
     event Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares);
     event Referral(uint16 indexed referral, address indexed owner, uint256 assets, uint256 shares);
