@@ -87,6 +87,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     YUsds token;
     bool validate;
 
+    event Cut(uint256 assets, uint256 oldChi, uint256 newChi);
     event Drip(uint256 chi, uint256 diff);
     event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
     event Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares);
@@ -1332,6 +1333,8 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         vm.warp(block.timestamp + warp);
 
+        vm.expectEmit();
+        emit Cut(_divup(rad, RAY), chiPrevDeduction, chiLast);
         vm.prank(pauseProxy); token.cut(rad);
 
         (,,, line2,) = dss.vat.ilks(token.ilk());
@@ -1355,5 +1358,113 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         (,,, line4,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line4, line3 - assets * RAY - bCap, 0.00000000000000001e45); // Limited by bCap
+    }
+
+    function testCutChiMinimal() public {
+        deal(address(usds), address(this), 999_999_950e18);
+        token.deposit(999_999_900e18, address(0x222));
+
+        assertEq(token.chi(), 1e27);
+        assertEq(token.totalSupply(), 1e27);
+        assertEq(token.balanceOf(address(this)), 0);
+        assertEq(token.balanceOf(address(0x222)), 1e27);
+        assertEq(token.convertToAssets(token.balanceOf(address(this))), 0);
+        assertEq(token.convertToAssets(token.balanceOf(address(0x222))), 1e27);
+        assertEq(token.totalAssets(), 1e27);
+
+        vm.expectEmit();
+        emit Cut(1e27 - 1, 1e27, 1);
+        vm.prank(pauseProxy); token.cut((1e27 - 1) * 1e27);
+
+        assertEq(token.chi(), 1);
+        assertEq(token.convertToAssets(token.balanceOf(address(this))), 0);
+        assertEq(token.convertToAssets(token.balanceOf(address(0x222))), 1);
+        assertEq(token.totalAssets(), 1);
+
+        token.deposit(50e18, address(this));
+
+        assertEq(token.totalSupply(), 50e45 + 1e27);
+        assertEq(token.balanceOf(address(this)), 50e45);
+        assertEq(token.balanceOf(address(0x222)), 1e27);
+        assertEq(token.convertToAssets(token.balanceOf(address(this))), 50e18);
+        assertEq(token.convertToAssets(token.balanceOf(address(0x222))), 1);
+        assertEq(token.totalAssets(), 50e18 + 1);
+    }
+
+    function testCutChiZero() public {
+        deal(address(usds), address(this), 999_999_950e18);
+        token.deposit(999_999_900e18, address(0x222));
+
+        assertEq(token.chi(), 1e27);
+        assertEq(token.totalSupply(), 1e27);
+        assertEq(token.balanceOf(address(this)), 0);
+        assertEq(token.balanceOf(address(0x222)), 1e27);
+        assertEq(token.convertToAssets(token.balanceOf(address(this))), 0);
+        assertEq(token.convertToAssets(token.balanceOf(address(0x222))), 1e27);
+        assertEq(token.totalAssets(), 1e27);
+
+        uint256 id = vm.snapshot();
+
+        vm.expectEmit();
+        emit Cut(1e27, 1e27, 0);
+        vm.prank(pauseProxy); token.cut(1e27 * 1e27);
+
+        vm.revertTo(id);
+
+        vm.expectEmit();
+        emit Cut(1e27, 1e27, 0);
+        vm.prank(pauseProxy); token.cut(2e27 * 1e27);
+
+        assertEq(token.chi(), 0);
+        assertEq(token.convertToAssets(token.balanceOf(address(this))), 0);
+        assertEq(token.convertToAssets(token.balanceOf(address(0x222))), 0);
+        assertEq(token.totalAssets(), 0);
+
+        vm.expectRevert(stdError.divisionError);
+        token.deposit(50e18, address(this));
+        vm.expectRevert("YUsds/assets-zero");
+        token.mint(50e18, address(this));
+    }
+
+    function testCutChiZeroDueRounding() public {
+        vm.prank(pauseProxy); dss.vat.suck(address(0), usdsJoin, 10_000_000_000e45);
+        deal(address(usds), address(this), 9_999_999_950e18);
+        token.deposit(9_999_999_900e18, address(0x222));
+
+        assertEq(token.chi(), 1e27);
+        assertEq(token.totalSupply(), 10e27);
+        assertEq(token.balanceOf(address(this)), 0);
+        assertEq(token.balanceOf(address(0x222)), 10e27);
+        assertEq(token.convertToAssets(token.balanceOf(address(this))), 0);
+        assertEq(token.convertToAssets(token.balanceOf(address(0x222))), 10e27);
+        assertEq(token.totalAssets(), 10e27);
+
+        vm.expectEmit();
+        emit Cut(10e27 - 1, 1e27, 0);
+        vm.prank(pauseProxy); token.cut((10e27 - 1) * 1e27);
+
+        assertEq(token.chi(), 0);
+        assertEq(token.convertToAssets(token.balanceOf(address(this))), 0);
+        assertEq(token.convertToAssets(token.balanceOf(address(0x222))), 0);
+        assertEq(token.totalAssets(), 0);
+
+        vm.expectRevert(stdError.divisionError);
+        token.deposit(50e18, address(this));
+        vm.expectRevert("YUsds/assets-zero");
+        token.mint(50e18, address(this));
+    }
+
+    function testCutAfterZeroAssets() public {
+        assertEq(token.totalAssets(), 100e18);
+
+        // Proving that even without assets second cut call won't fail.
+        // This is important to make sure any auction could revert if there is bad debt accrual
+        vm.expectEmit();
+        emit Cut(100e18, 1e27, 0);
+        vm.prank(pauseProxy); token.cut(100e18 * 1e27);
+        assertEq(token.totalAssets(), 0);
+        assertEq(token.chi(), 0);
+        emit Cut(0, 0, 0);
+        vm.prank(pauseProxy); token.cut(1 * 1e27);
     }
 }

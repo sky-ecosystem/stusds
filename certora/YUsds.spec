@@ -646,8 +646,6 @@ rule file_revert(bytes32 what, uint256 data) {
 rule cut(uint256 rad) {
     env e;
 
-    mathint assets = _divup(rad, RAY());
-
     bytes32 ilk = ilk();
     mathint bCap = bCap();
     address vow = vow();
@@ -660,13 +658,15 @@ rule cut(uint256 rad) {
     mathint usdsBalanceOfYusdsBefore = usds.balanceOf(currentContract);
     mathint vatDaiVowBefore = vat.dai(vow);
 
+    mathint assets = _min(_divup(rad, RAY()), totalAssetsBefore);
+
     // Correct vow set
     require vow != currentContract && vow != usdsJoin;
     // ERC20 correct behaviour
     require usdsTotalSupplyBefore >= usdsBalanceOfYusdsBefore;
 
     mathint chiDripCalc = defNewChi(e);
-    mathint newChiCalc = totalAssetsBefore > 0 ? chiDripCalc * _subcap(totalAssetsBefore, assets) / totalAssetsBefore : 0; // Else path won't be evaluated as should revert
+    mathint newChiCalc = totalAssetsBefore > 0 ? chiDripCalc * (totalAssetsBefore - assets) / totalAssetsBefore : 0;
     mathint lineCalc = _min(bCap, _subcap(totalSupply * newChiCalc, Due));
 
     mathint dripDiff = totalSupply * chiDripCalc / RAY() - totalSupply * chiBefore / RAY();
@@ -695,8 +695,6 @@ rule cut_revert(uint256 rad) {
 
     requireInvariant usdsBalance_greater_or_equal_than_totalAssets();
 
-    mathint assets = _divup(rad, RAY());
-
     mathint wardsSender = wards(e.msg.sender);
 
     address vow = vow();
@@ -711,13 +709,15 @@ rule cut_revert(uint256 rad) {
     mathint usdsTotalSupply = usds.totalSupply();
     mathint usdsBalanceOfYusds = usds.balanceOf(currentContract);
 
+    mathint assets = _min(_divup(rad, RAY()), totalAssets);
+
     // Blockchain behaviour
     require e.block.timestamp >= rho();
     require e.block.timestamp < 2^64;
 
     mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
     mathint chiDripCalc = defNewChi(e);
-    mathint newChiCalc = totalAssets > 0 ? chiDripCalc * _subcap(totalAssets, assets) / totalAssets : 0;
+    mathint newChiCalc = totalAssets > 0 ? chiDripCalc * (totalAssets - assets) / totalAssets : 0;
 
     mathint dripDiff = totalSupply * chiDripCalc / RAY() - totalSupply * chi / RAY();
 
@@ -744,22 +744,19 @@ rule cut_revert(uint256 rad) {
 
     cut@withrevert(e, rad);
 
-    bool revert1  = e.msg.value > 0;
-    bool revert2  = wardsSender != 1;
-    bool revert3  = e.block.timestamp > rho && rpowRes * chi > max_uint256;
-    bool revert4  = e.block.timestamp > rho && dripDiff < 0;
-    bool revert5  = e.block.timestamp > rho && totalSupply * chiDripCalc > max_uint256;
-    bool revert6  = e.block.timestamp > rho && totalSupply * chi > max_uint256;
-    bool revert7  = e.block.timestamp > rho && dripDiff * RAY() > max_uint256;
-    bool revert8  = chiDripCalc * _subcap(totalAssets, assets) > max_uint256;
-    bool revert9  = totalAssets == 0;
-    bool revert10 = assets > usdsBalanceOfYusds + dripDiff;
-    bool revert11 = totalSupply * newChiCalc > max_uint256;
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = wardsSender != 1;
+    bool revert3 = e.block.timestamp > rho && rpowRes * chi > max_uint256;
+    bool revert4 = e.block.timestamp > rho && dripDiff < 0;
+    bool revert5 = e.block.timestamp > rho && totalSupply * chiDripCalc > max_uint256;
+    bool revert6 = e.block.timestamp > rho && totalSupply * chi > max_uint256;
+    bool revert7 = e.block.timestamp > rho && dripDiff * RAY() > max_uint256;
+    bool revert8 = chiDripCalc * (totalAssets - assets) > max_uint256;
+    bool revert9 = totalSupply * newChiCalc > max_uint256;
 
-    assert lastReverted <=> revert1  || revert2 || revert3 ||
-                            revert4  || revert5 || revert6 ||
-                            revert7  || revert8 || revert9 ||
-                            revert10 || revert11, "Revert rules failed";
+    assert lastReverted <=> revert1 || revert2 || revert3 ||
+                            revert4 || revert5 || revert6 ||
+                            revert7 || revert8 || revert9, "Revert rules failed";
 }
 
 // Verify correct storage changes for non reverting drip

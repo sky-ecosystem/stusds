@@ -248,10 +248,12 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function cut(uint256 rad) external auth {
-        uint256 assets = _divup(rad, RAY);
-        uint256 oldChi = _drip();
         uint256 prevTotalAssets = convertToAssets(totalSupply);
-        uint256 newChi = chi = uint192(oldChi * _subcap(prevTotalAssets, assets) / prevTotalAssets); // safe as newChi < oldChi;
+        uint256 assets = _min(_divup(rad, RAY), prevTotalAssets);
+        uint256 oldChi = _drip();
+        uint256 newChi = chi = prevTotalAssets > 0
+                               ? uint192(oldChi * (prevTotalAssets - assets) / prevTotalAssets)
+                               : 0; // safe as newChi <= oldChi;
         usdsJoin.join(vow, assets);
         _setLine();
         emit Cut(assets, oldChi, newChi);
@@ -452,6 +454,7 @@ contract YUsds is UUPSUpgradeable {
 
     function mint(uint256 shares, address receiver) public returns (uint256 assets) {
         assets = _divup(shares * _drip(), RAY);
+        require(assets > 0, "YUsds/assets-zero");
         _mint(assets, shares, receiver);
     }
 
