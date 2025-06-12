@@ -74,8 +74,8 @@ contract YUsds is UUPSUpgradeable {
     uint192 public chi;   // The Rate Accumulator  [ray]
     uint64  public rho;   // Time of last drip     [unix epoch time]
     uint256 public syr;   // The USDS Savings Rate [ray]
-    uint256 public sCap;  // Supply max deposits   [wad]
-    uint256 public bCap;  // Borrow max ceiling    [rad]
+    uint256 public cap;   // Supply max deposits   [wad]
+    uint256 public line;  // Borrow max ceiling    [rad]
 
     // --- Constants ---
 
@@ -239,10 +239,10 @@ contract YUsds is UUPSUpgradeable {
             require(data >= RAY, "YUsds/wrong-syr-value");
             require(rho == block.timestamp, "YUsds/chi-not-up-to-date");
             syr = data;
-        } else if (what == "sCap") {
-            sCap = data;
-        } else if (what == "bCap") {
-            bCap = data;
+        } else if (what == "cap") {
+            cap = data;
+        } else if (what == "line") {
+            line = data;
         } else revert("YUsds/file-unrecognized-param");
         emit File(what, data);
     }
@@ -262,7 +262,7 @@ contract YUsds is UUPSUpgradeable {
     // --- Set ilk debt ceiling ---
 
     function _setLine() internal {
-        vat.file(ilk, "line", _min(bCap, _subcap(totalSupply * chi, clip.Due())));
+        vat.file(ilk, "line", _min(line, _subcap(totalSupply * chi, clip.Due())));
         // TODO: define if we want to update the vat.Line as well (quite probably yes)
     }
 
@@ -346,7 +346,7 @@ contract YUsds is UUPSUpgradeable {
     function _mint(uint256 assets, uint256 shares, address receiver) internal {
         require(receiver != address(0) && receiver != address(this), "YUsds/invalid-address");
         uint256 totalSupply_ = totalSupply;
-        require(totalSupply_ * chi / RAY + assets <= sCap, "YUsds/mint-over-supply-cap");
+        require(totalSupply_ * chi / RAY + assets <= cap, "YUsds/mint-over-supply-cap");
 
         usds.transferFrom(msg.sender, address(this), assets);
 
@@ -414,10 +414,10 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function maxDeposit(address) external view returns (uint256) {
-        uint256 sCap_ = sCap;
-        if (sCap_ < type(uint256).max) {
+        uint256 cap_ = cap;
+        if (cap_ < type(uint256).max) {
             uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
-            return _subcap(sCap_, totalSupply * chi_ / RAY);
+            return _subcap(cap_, totalSupply * chi_ / RAY);
         } else {
             return type(uint256).max;
         }
@@ -438,10 +438,10 @@ contract YUsds is UUPSUpgradeable {
     }
 
     function maxMint(address) external view returns (uint256) {
-        uint256 sCap_ = sCap;
-        if (sCap_ < type(uint256).max) {
+        uint256 cap_ = cap;
+        if (cap_ < type(uint256).max) {
             uint256 chi_ = (block.timestamp > rho) ? _rpow(syr, block.timestamp - rho) * chi / RAY : chi;
-            return _subcap(sCap_, totalSupply * chi_ / RAY) * RAY / chi_;
+            return _subcap(cap_, totalSupply * chi_ / RAY) * RAY / chi_;
         } else {
             return type(uint256).max;
         }
