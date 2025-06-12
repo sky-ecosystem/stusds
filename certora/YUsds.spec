@@ -1293,20 +1293,21 @@ rule mint_revert(uint256 shares, address receiver, uint16 referral) {
 
     bool revert1  = e.msg.value > 0;
     bool revert2  = shares * newChiCalc > max_uint256;
-    bool revert3  = e.block.timestamp > rho && rpowRes * chi > max_uint256;
-    bool revert4  = e.block.timestamp > rho && dripDiff < 0;
-    bool revert5  = e.block.timestamp > rho && totalSupply * newChiCalc > max_uint256;
-    bool revert6  = e.block.timestamp > rho && totalSupply * chi > max_uint256;
-    bool revert7  = e.block.timestamp > rho && dripDiff * RAY() > max_uint256;
-    bool revert8  = receiver == 0 || receiver == currentContract;
-    bool revert9  = totalSupply + shares > max_uint256;
-    bool revert10 = totalSupply * newChiCalc / RAY() + assetsCalc > cap;
-    bool revert11 = (totalSupply + shares) * newChiCalc > max_uint256;
+    bool revert3  = assetsCalc == 0;
+    bool revert4  = e.block.timestamp > rho && rpowRes * chi > max_uint256;
+    bool revert5  = e.block.timestamp > rho && dripDiff < 0;
+    bool revert6  = e.block.timestamp > rho && totalSupply * newChiCalc > max_uint256;
+    bool revert7  = e.block.timestamp > rho && totalSupply * chi > max_uint256;
+    bool revert8  = e.block.timestamp > rho && dripDiff * RAY() > max_uint256;
+    bool revert9  = receiver == 0 || receiver == currentContract;
+    bool revert10 = totalSupply + shares > max_uint256;
+    bool revert11 = totalSupply * newChiCalc / RAY() + assetsCalc > cap;
+    bool revert12 = (totalSupply + shares) * newChiCalc > max_uint256;
 
-    assert lastReverted <=> revert1  || revert2 || revert3 ||
-                            revert4  || revert5 || revert6 ||
-                            revert7  || revert8 || revert9 ||
-                            revert10 || revert11, "Revert rules failed";
+    assert lastReverted <=> revert1  || revert2  || revert3 ||
+                            revert4  || revert5  || revert6 ||
+                            revert7  || revert8  || revert9 ||
+                            revert10 || revert11 || revert12, "Revert rules failed";
 }
 
 // Verify correct behaviour of maxWithdraw getter
