@@ -56,8 +56,8 @@ contract RateSetter {
     // --- Storage Variables ---
     mapping(address => uint256) public wards;
     mapping(address => uint256) public buds;
-    mapping(bytes32 => Cfg)     public cfgs;
-
+    Cfg     public syrCfg;
+    Cfg     public dutyCfg;
     uint256 public maxLine; // [rad]
     uint256 public maxCap;  // [wad]
     
@@ -142,77 +142,71 @@ contract RateSetter {
     }
 
     function file(bytes32 id, bytes32 what, uint256 data) external auth {
-        require(id == "SYR" || id == engineIlk, "RateSetter/invalid-id");
+        Cfg storage cfg;
+        if      (id == "SYR")     cfg = syrCfg;
+        else if (id == engineIlk) cfg = dutyCfg;
+        else revert("RateSetter/file-unrecognized-id");
+
         require(data <= type(uint16).max, "RateSetter/invalid-value");
         if (what == "min") {
-            require(data <= cfgs[id].max, "RateSetter/min-too-high");
-            cfgs[id].min = uint16(data);
+            require(data <= cfg.max, "RateSetter/min-too-high");
+            cfg.min = uint16(data);
         } else if (what == "max") {
-            require(data >= cfgs[id].min, "RateSetter/max-too-low");
-            cfgs[id].max = uint16(data);
+            require(data >= cfg.min, "RateSetter/max-too-low");
+            cfg.max = uint16(data);
         } else if (what == "step") {
-            cfgs[id].step = uint16(data);
+            cfg.step = uint16(data);
         } else revert("RateSetter/file-unrecognized-param");
         emit File(id, what, data);
     }
 
-    function _setRates(uint256 syrBps, uint256 dutyBps) internal {
-        bytes32 id;
-        uint256 bps;
-        uint256 oldBps;
 
-        for (uint256 i = 0; i < 2; i++) {
-            if (i == 0) {
-                (id, bps, oldBps) = ("SYR", syrBps, conv.rtob(yusds.syr()));
-            } else {
-                (id, bps) = (engineIlk, dutyBps);
-                (uint256 duty,) = JugLike(jug).ilks(id);
-                oldBps = conv.rtob(duty);
-            }
+    function _calcRate(uint256 bps, uint256 oldBps, Cfg memory cfg) internal view returns (uint256 ray) {
+        require(cfg.step > 0, "RateSetter/rate-not-configured");
+        require(bps >= cfg.min, "RateSetter/below-min");
+        require(bps <= cfg.max, "RateSetter/above-max");
 
-            Cfg memory cfg = cfgs[id];
-
-            require(cfg.step > 0, "RateSetter/rate-not-configured");
-            require(bps >= cfg.min, "RateSetter/below-min");
-            require(bps <= cfg.max, "RateSetter/above-max");
-
-            if (oldBps < cfg.min) {
-                oldBps = cfg.min;
-            } else if (oldBps > cfg.max) {
-                oldBps = cfg.max;
-            }
-
-            // Calculates absolute difference between the old and the new rate
-            uint256 delta = bps > oldBps ? bps - oldBps : oldBps - bps;
-            require(delta <= cfg.step, "RateSetter/delta-above-step");
-
-            // Execute the update
-            uint256 ray = conv.btor(bps);
-            require(ray >= RAY, "RateSetter/invalid-rate-conv");
-            if (id == "SYR") {
-                yusds.drip();
-                yusds.file("syr", ray);
-            } else {
-                jug.drip(id);
-                jug.file(id, "duty", ray);
-            }
+        if (oldBps < cfg.min) {
+            oldBps = cfg.min;
+        } else if (oldBps > cfg.max) {
+            oldBps = cfg.max;
         }
-    }
 
-    function _setCaps(uint256 line, uint256 cap) internal {
-        require(line <= maxLine, "RateSetter/line-too-high");
-        require(cap  <= maxCap, "RateSetter/cap-too-high");
+        // Calculates absolute difference between the old and the new rate
+        uint256 delta = bps > oldBps ? bps - oldBps : oldBps - bps;
+        require(delta <= cfg.step, "RateSetter/delta-above-step");
 
-        yusds.file("line", line);
-        yusds.file("cap", cap);
+        // Execute the update
+        ray = conv.btor(bps);
+        require(ray >= RAY, "RateSetter/invalid-rate-conv");
     }
 
     function set(uint256 syrBps, uint256 dutyBps, uint256 line, uint256 cap) external toll good {
         require(block.timestamp >= tau + toc, "RateSetter/too-early");
         toc = uint128(block.timestamp);
 
-        _setRates(syrBps, dutyBps);
-        _setCaps(line, cap);
+        uint256 ray = _calcRate({
+            bps    : syrBps,
+            oldBps : conv.rtob(yusds.syr()),
+            cfg    : syrCfg
+        });
+        yusds.drip();
+        yusds.file("syr", ray);
+
+        (uint256 duty,) = JugLike(jug).ilks(engineIlk);
+        ray = _calcRate({
+            bps    : dutyBps,
+            oldBps : conv.rtob(duty),
+            cfg    : dutyCfg
+        });
+        jug.drip(engineIlk);
+        jug.file(engineIlk, "duty", ray);
+
+        require(line <= maxLine, "RateSetter/line-too-high");
+        yusds.file("line", line);
+
+        require(cap <= maxCap, "RateSetter/cap-too-high");
+        yusds.file("cap", cap);
 
         emit Set(syrBps, dutyBps, line, cap);
     }
