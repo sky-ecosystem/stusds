@@ -132,11 +132,9 @@ contract RateSetter {
             require(data <= type(uint128).max, "RateSetter/invalid-toc-value");
             toc = uint128(data);
         } else if (what == "maxLine") {
-            require(data <= type(uint128).max, "RateSetter/invalid-maxLinec-value");
-            maxLine = uint128(data); // TODO: further sanity checks?
+            maxLine = data; // TODO: further sanity checks?
         } else if (what == "maxCap") {
-            require(data <= type(uint128).max, "RateSetter/invalid-maxCap-value");
-            maxCap = uint128(data); // TODO: further sanity checks?
+            maxCap = data; // TODO: further sanity checks?
         } else revert("RateSetter/file-unrecognized-param");
         emit File(what, data);
     }
@@ -159,7 +157,6 @@ contract RateSetter {
         } else revert("RateSetter/file-unrecognized-param");
         emit File(id, what, data);
     }
-
 
     function _calcRate(uint256 bps, uint256 oldBps, Cfg memory cfg) internal view returns (uint256 ray) {
         require(cfg.step > 0, "RateSetter/rate-not-configured");
