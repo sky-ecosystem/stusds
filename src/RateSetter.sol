@@ -132,9 +132,11 @@ contract RateSetter {
             require(data <= type(uint128).max, "RateSetter/invalid-toc-value");
             toc = uint128(data);
         } else if (what == "maxLine") {
-            maxLine = data; // TODO: further sanity checks?
+            require(data == 0 || data > RAY, "RateSetter/maxLine-insane-value");
+            maxLine = data;
         } else if (what == "maxCap") {
-            maxCap = data; // TODO: further sanity checks?
+            require(data < RAY, "RateSetter/maxCap-insane-value");
+            maxCap = data;
         } else revert("RateSetter/file-unrecognized-param");
         emit File(what, data);
     }
