@@ -46,6 +46,7 @@ contract RateSetter {
 
     // --- Constants ---
     uint256 public constant RAY = 10 ** 27;
+    uint256 public constant RAD = 10 ** 45;
 
     // --- Immutables ---
     JugLike   public immutable jug;
@@ -60,7 +61,6 @@ contract RateSetter {
     Cfg     public dutyCfg;
     uint256 public maxLine; // [rad]
     uint256 public maxCap;  // [wad]
-    
     uint8   public bad; // Circuit breaker flag
     uint64  public tau; // Cooldown period between rate changes in seconds
     uint128 public toc; // Last time when rates were updated (Unix timestamp)
@@ -132,10 +132,10 @@ contract RateSetter {
             require(data <= type(uint128).max, "RateSetter/invalid-toc-value");
             toc = uint128(data);
         } else if (what == "maxLine") {
-            require(data == 0 || data > RAY, "RateSetter/maxLine-insane-value");
+            require(data == 0 || data > RAD, "RateSetter/maxLine-insane-value");
             maxLine = data;
         } else if (what == "maxCap") {
-            require(data < RAY, "RateSetter/maxCap-insane-value");
+            require(data < RAD, "RateSetter/maxCap-insane-value");
             maxCap = data;
         } else revert("RateSetter/file-unrecognized-param");
         emit File(what, data);
@@ -161,7 +161,7 @@ contract RateSetter {
     }
 
     function _calcRate(uint256 bps, uint256 oldBps, Cfg memory cfg) internal view returns (uint256 ray) {
-        require(cfg.step > 0, "RateSetter/rate-not-configured");
+        require(cfg.step > 0,   "RateSetter/rate-not-configured");
         require(bps >= cfg.min, "RateSetter/below-min");
         require(bps <= cfg.max, "RateSetter/above-max");
 
@@ -180,6 +180,8 @@ contract RateSetter {
         require(ray >= RAY, "RateSetter/invalid-rate-conv");
     }
 
+    // Notes:
+    // - It is intended to rewrite the same values, emit the event, and reset the toc count, even if there is no change.
     function set(uint256 syrBps, uint256 dutyBps, uint256 line, uint256 cap) external toll good {
         require(block.timestamp >= tau + toc, "RateSetter/too-early");
         toc = uint128(block.timestamp);
