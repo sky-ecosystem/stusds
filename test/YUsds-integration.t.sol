@@ -121,7 +121,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
             stepDutyBps: 0,
             maxSyrBps: 0,
             minSyrBps: 0,
-            minStepBps: 0,
+            stepSyrBps: 0,
             bud: address(0)
         });
         vm.warp(block.timestamp + 10);

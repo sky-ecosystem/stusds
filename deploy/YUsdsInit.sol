@@ -61,12 +61,12 @@ struct YUsdsConfig {
     uint256 tau;
     uint256 maxLine;
     uint256 maxCap;
-    uint256 maxDutyBps;
-    uint256 minDutyBps;
-    uint256 stepDutyBps;
-    uint256 maxSyrBps;
     uint256 minSyrBps;
-    uint256 minStepBps;
+    uint256 maxSyrBps;
+    uint256 stepSyrBps;
+    uint256 minDutyBps;
+    uint256 maxDutyBps;
+    uint256 stepDutyBps;
     address bud;
 }
 
@@ -109,14 +109,15 @@ library YUsdsInit {
         RateSetterLike(instance.rateSetter).file("maxLine", cfg.maxLine);
         RateSetterLike(instance.rateSetter).file("maxCap",  cfg.maxCap);
 
+        // Note: we configure max first on purpose to initially pass the max > min validation
+        RateSetterLike(instance.rateSetter).file("SYR", "max",  cfg.maxSyrBps);
+        RateSetterLike(instance.rateSetter).file("SYR", "min",  cfg.minSyrBps);
+        RateSetterLike(instance.rateSetter).file("SYR", "step", cfg.stepSyrBps);
+
         bytes32 ilk = RateSetterLike(instance.rateSetter).ilk();
         RateSetterLike(instance.rateSetter).file(ilk, "max",  cfg.maxDutyBps);
         RateSetterLike(instance.rateSetter).file(ilk, "min",  cfg.minDutyBps);
         RateSetterLike(instance.rateSetter).file(ilk, "step", cfg.stepDutyBps);
-
-        RateSetterLike(instance.rateSetter).file("SYR", "max",  cfg.maxSyrBps);
-        RateSetterLike(instance.rateSetter).file("SYR", "min",  cfg.minSyrBps);
-        RateSetterLike(instance.rateSetter).file("SYR", "step", cfg.minStepBps);
 
         RateSetterLike(instance.rateSetter).kiss(cfg.bud);
 

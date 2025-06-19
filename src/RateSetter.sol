@@ -17,15 +17,15 @@
 pragma solidity ^0.8.21;
 
 interface JugLike {
-    function file(bytes32 ilk, bytes32 what, uint256 data) external;
     function ilks(bytes32 ilk) external view returns (uint256 duty, uint256 rho);
+    function file(bytes32 ilk, bytes32 what, uint256 data) external;
     function drip(bytes32 ilk) external;
 }
 
 interface YUSDSLike {
     function ilk() external view returns (bytes32);
-    function file(bytes32 what, uint256 data) external;
     function syr() external view returns (uint256);
+    function file(bytes32 what, uint256 data) external;
     function drip() external;
 }
 
@@ -91,10 +91,10 @@ contract RateSetter {
     }
 
     constructor(address _jug, address _yusds, address _conv) {
-        jug = JugLike(_jug);
+        jug   = JugLike(_jug);
         yusds = YUSDSLike(_yusds);
-        conv = ConvLike(_conv);
-        ilk = yusds.ilk();
+        conv  = ConvLike(_conv);
+        ilk   = yusds.ilk();
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -194,7 +194,7 @@ contract RateSetter {
         yusds.drip();
         yusds.file("syr", ray);
 
-        (uint256 duty,) = JugLike(jug).ilks(ilk);
+        (uint256 duty,) = jug.ilks(ilk);
         ray = _calcRate({
             bps    : dutyBps,
             oldBps : conv.rtob(duty),
