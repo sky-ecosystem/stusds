@@ -57,7 +57,7 @@ contract RateSetterTest is DssTest {
     RateSetter  rateSetter;
     ConvLike    conv;
     YUsds       yusds;
-    ClipMock    clip;
+    address     clip;
     address     pauseProxy;
 
     address bud = address(0xb0d);
@@ -75,25 +75,23 @@ contract RateSetterTest is DssTest {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"), 22725635); // TODO: remove the specific block
         dss = MCD.loadFromChainlog(CHAINLOG);
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
-        MCD.giveAdminAccess(dss);
+        conv = ConvLike(address(RateSetter(dss.chainlog.getAddress("MCD_SPBEAM")).conv()));
 
-        clip = new ClipMock(ILK);
-        YUsdsInstance memory inst = YUsdsDeploy.deploy(address(this), pauseProxy, address(clip));
+        clip = address(new ClipMock(ILK));
+        YUsdsInstance memory inst = YUsdsDeploy.deploy(address(this), pauseProxy, clip);
         yusds = YUsds(inst.yUsds);
+
         YUsdsConfig memory conf = YUsdsConfig({
-            clip: address(clip),
-            syr: 1000000001547125957863212448,
-            cap: type(uint256).max,
-            line: type(uint256).max
+            clip : clip,
+            syr  : 1000000001547125957863212448,
+            cap  : type(uint256).max,
+            line : type(uint256).max
         });
-        vm.warp(block.timestamp + 10);
         vm.startPrank(pauseProxy);
-        dss.vat.file(yusds.ilk(), "line", 0);
         YUsdsInit.init(dss, inst, conf);
         vm.stopPrank();
 
-        conv = ConvLike(0xea91A18dAFA1Cb1d2a19DFB205816034e6Fe7e52);
-
+        // TODO: replace with deploy and init scripts
         rateSetter = new RateSetter(address(dss.jug), address(yusds), address(conv));
         rateSetter.rely(pauseProxy);
         rateSetter.deny(address(this));
@@ -417,6 +415,7 @@ contract RateSetterTest is DssTest {
     }
 
     function test_revert_set_malfunctioning_conv() public {
+        // TODO: replace with deploy and init scripts
         RateSetter rateSetter2 = new RateSetter(address(dss.jug), address(yusds), address(new MockBrokenConv(address(conv))));
         rateSetter2.rely(pauseProxy);
         rateSetter2.deny(address(this));
