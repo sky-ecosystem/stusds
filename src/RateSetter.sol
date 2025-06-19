@@ -52,7 +52,7 @@ contract RateSetter {
     JugLike   public immutable jug;
     YUSDSLike public immutable yusds;
     ConvLike  public immutable conv;
-    bytes32   public immutable engineIlk;
+    bytes32   public immutable ilk;
 
     // --- Storage Variables ---
     mapping(address => uint256) public wards;
@@ -94,7 +94,7 @@ contract RateSetter {
         jug = JugLike(_jug);
         yusds = YUSDSLike(_yusds);
         conv = ConvLike(_conv);
-        engineIlk = yusds.ilk();
+        ilk = yusds.ilk();
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -143,8 +143,8 @@ contract RateSetter {
 
     function file(bytes32 id, bytes32 what, uint256 data) external auth {
         Cfg storage cfg;
-        if      (id == "SYR")     cfg = syrCfg;
-        else if (id == engineIlk) cfg = dutyCfg;
+        if      (id == "SYR") cfg = syrCfg;
+        else if (id == ilk)   cfg = dutyCfg;
         else revert("RateSetter/file-unrecognized-id");
 
         require(data <= type(uint16).max, "RateSetter/invalid-value");
@@ -194,14 +194,14 @@ contract RateSetter {
         yusds.drip();
         yusds.file("syr", ray);
 
-        (uint256 duty,) = JugLike(jug).ilks(engineIlk);
+        (uint256 duty,) = JugLike(jug).ilks(ilk);
         ray = _calcRate({
             bps    : dutyBps,
             oldBps : conv.rtob(duty),
             cfg    : dutyCfg
         });
-        jug.drip(engineIlk);
-        jug.file(engineIlk, "duty", ray);
+        jug.drip(ilk);
+        jug.file(ilk, "duty", ray);
 
         require(line <= maxLine, "RateSetter/line-too-high");
         yusds.file("line", line);

@@ -100,7 +100,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         LOG = ChainlogAbstract(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
         dss = MCD.loadFromChainlog(LOG);
-        
+
         pauseProxy = LOG.getAddress("MCD_PAUSE_PROXY");
         usds = UsdsLike(LOG.getAddress("USDS"));
         usdsJoin = LOG.getAddress("USDS_JOIN");
@@ -112,7 +112,17 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
             clip: address(clip),
             syr: 1000000001547125957863212448,
             cap: type(uint256).max,
-            line: type(uint256).max
+            line: type(uint256).max,
+            tau: 0, // passnig zeros as RateSetter will not be used in this test
+            maxLine: 0,
+            maxCap: 0,
+            maxDutyBps: 0,
+            minDutyBps: 0,
+            stepDutyBps: 0,
+            maxSyrBps: 0,
+            minSyrBps: 0,
+            minStepBps: 0,
+            bud: address(0)
         });
         vm.warp(block.timestamp + 10);
         vm.startPrank(pauseProxy);

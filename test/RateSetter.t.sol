@@ -75,46 +75,31 @@ contract RateSetterTest is DssTest {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"), 22725635); // TODO: remove the specific block
         dss = MCD.loadFromChainlog(CHAINLOG);
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
-        conv = ConvLike(address(RateSetter(dss.chainlog.getAddress("MCD_SPBEAM")).conv()));
 
         clip = address(new ClipMock(ILK));
         YUsdsInstance memory inst = YUsdsDeploy.deploy(address(this), pauseProxy, clip);
         yusds = YUsds(inst.yUsds);
+        rateSetter = RateSetter(inst.rateSetter);
+        conv = ConvLike(address(rateSetter.conv()));
 
         YUsdsConfig memory conf = YUsdsConfig({
-            clip : clip,
-            syr  : 1000000001547125957863212448,
-            cap  : type(uint256).max,
-            line : type(uint256).max
+            clip        : clip,
+            syr         : 1000000001547125957863212448,
+            cap         : type(uint256).max,
+            line        : type(uint256).max,
+            tau         : 1 hours,
+            maxLine     : 1e9 * RAD,
+            maxCap      : 1e9 * WAD,
+            maxDutyBps  : 3000,
+            minDutyBps  : 1,
+            stepDutyBps : 100,
+            maxSyrBps   : 3000,
+            minSyrBps   : 1,
+            minStepBps  : 100,
+            bud         : bud
         });
         vm.startPrank(pauseProxy);
         YUsdsInit.init(dss, inst, conf);
-        vm.stopPrank();
-
-        // TODO: replace with deploy and init scripts
-        rateSetter = new RateSetter(address(dss.jug), address(yusds), address(conv));
-        rateSetter.rely(pauseProxy);
-        rateSetter.deny(address(this));
-
-        vm.startPrank(pauseProxy);
-        dss.jug.rely(address(rateSetter));
-        yusds.rely(address(rateSetter));
-
-        // Configure global parameters
-        rateSetter.file("tau", 0);
-        rateSetter.file("maxLine", 1e9 * RAD);
-        rateSetter.file("maxCap",  1e9 * WAD);
-
-        rateSetter.file(ILK, "max", uint16(3000));
-        rateSetter.file(ILK, "min", uint16(1));
-        rateSetter.file(ILK, "step", uint16(100));
-
-        rateSetter.file(SYR, "max", uint16(3000));
-        rateSetter.file(SYR, "min", uint16(1));
-        rateSetter.file(SYR, "step", uint16(100));
-
-        // Authorize bud
-        rateSetter.kiss(bud);
         vm.stopPrank();
     }
 
@@ -135,21 +120,35 @@ contract RateSetterTest is DssTest {
         dutyBps = _dutyBps();
     }
 
-    function test_constructor_and_init() public view {
+    function test_deploy() public view {
+        // Rate setter part only
         assertEq(address(rateSetter.jug()), address(dss.jug));
         assertEq(address(rateSetter.yusds()), address(yusds));
         assertEq(address(rateSetter.conv()), address(conv));
-        assertEq(rateSetter.engineIlk(), ILK);
-
-        // init
+        assertEq(rateSetter.ilk(), ILK);
         assertEq(rateSetter.wards(address(this)), 0);
         assertEq(rateSetter.wards(pauseProxy), 1);
-        //assertEq(rateSetter.wards(address(mom)), 1);
-        //assertEq(mom.authority(), dss.chainlog.getAddress("MCD_ADM"));
+        // assertEq(rateSetter.wards(address(mom)), 1); // TODO: add when mom is added
+    }
+
+    function test_init() public {
+        // Rate setter part only
         assertEq(dss.jug.wards(address(rateSetter)), 1);
         assertEq(yusds.wards(address(rateSetter)), 1);
-
-        // TODO: check if need more checks once init scripts are done (e.g. bud kiss check)
+        assertEq(rateSetter.tau(), 1 hours);
+        assertEq(rateSetter.maxLine(), 1e9 * RAD);
+        assertEq(rateSetter.maxCap(), 1e9 * WAD);
+        (uint16 minDuty, uint16 maxDuty, uint256 dutyStep) = rateSetter.dutyCfg();
+        assertEq(minDuty, 1);
+        assertEq(maxDuty, 3000);
+        assertEq(dutyStep, 100);
+        (uint16 minSyr, uint16 maxSyr, uint256 syrStep) = rateSetter.syrCfg();
+        assertEq(minSyr, 1);
+        assertEq(maxSyr, 3000);
+        assertEq(syrStep, 100);
+        assertEq(rateSetter.buds(bud), 1);
+        assertEq(dss.chainlog.getAddress("YUSDS_RATE_SETTER"), address(rateSetter));
+        //assertEq(mom.authority(), dss.chainlog.getAddress("MCD_ADM")); // TODO: add when mom is added
     }
 
     function test_auth() public {
@@ -300,9 +299,8 @@ contract RateSetterTest is DssTest {
         assertEq(yusds.cap(), 50_000_000 * WAD);
     }
 
-    // checks that can still set rates, even if previously the rates were outside of the range
-    function test_set_rate_outside_range() public {
-        // rate above max
+    // check that can still set rates, even if previously the rates were outside of the range
+    function test_set_rates_above_max() public {
         dss.jug.drip(ILK);
         vm.startPrank(pauseProxy);
         dss.jug.file(ILK, "duty", conv.btor(3050)); // outside range
@@ -315,8 +313,9 @@ contract RateSetterTest is DssTest {
 
         assertEq(_duty(), conv.btor(2999));
         assertEq(yusds.syr(), conv.btor(2999));
+    }
 
-        // rate below min
+    function test_set_rates_below_min() public {
         dss.jug.drip(ILK);
         yusds.drip();
         vm.startPrank(pauseProxy);
@@ -415,34 +414,14 @@ contract RateSetterTest is DssTest {
     }
 
     function test_revert_set_malfunctioning_conv() public {
-        // TODO: replace with deploy and init scripts
-        RateSetter rateSetter2 = new RateSetter(address(dss.jug), address(yusds), address(new MockBrokenConv(address(conv))));
-        rateSetter2.rely(pauseProxy);
-        rateSetter2.deny(address(this));
+        // Clone the good conv code, so it can be used inside the broken one
+        vm.etch(address(0x123), address(conv).code);
 
-        vm.startPrank(pauseProxy);
-        dss.jug.rely(address(rateSetter2));
-        yusds.rely(address(rateSetter2));
-
-        // Configure global parameters
-        rateSetter2.file("tau", 0);
-        rateSetter2.file("maxLine", 1e9 * RAD);
-        rateSetter2.file("maxCap",  1e9 * WAD);
-
-        rateSetter2.file(ILK, "max", uint16(3000));
-        rateSetter2.file(ILK, "min", uint16(1));
-        rateSetter2.file(ILK, "step", uint16(100));
-
-        rateSetter2.file(SYR, "max", uint16(3000));
-        rateSetter2.file(SYR, "min", uint16(1));
-        rateSetter2.file(SYR, "step", uint16(100));
-
-        // Authorize bud
-        rateSetter2.kiss(bud);
-        vm.stopPrank();
+        // Mutate the conv code that is used in rateSetter
+        vm.etch(address(conv), address(new MockBrokenConv(address(0x123))).code);
 
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("RateSetter/invalid-rate-conv");
-        vm.prank(bud); rateSetter2.set(syrBps, dutyBps, 0, 0);
+        vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
     }
 }

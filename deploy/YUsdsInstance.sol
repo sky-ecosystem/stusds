@@ -19,4 +19,5 @@ pragma solidity >=0.8.0;
 struct YUsdsInstance {
     address yUsds;
     address yUsdsImp;
+    address rateSetter;
 }
