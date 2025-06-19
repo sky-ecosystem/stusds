@@ -57,7 +57,6 @@ contract RateSetterTest is DssTest {
     RateSetter  rateSetter;
     ConvLike    conv;
     YUsds       yusds;
-    address     clip;
     address     pauseProxy;
 
     address bud = address(0xb0d);
@@ -76,14 +75,13 @@ contract RateSetterTest is DssTest {
         dss = MCD.loadFromChainlog(CHAINLOG);
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
 
-        clip = address(new ClipMock(ILK));
-        YUsdsInstance memory inst = YUsdsDeploy.deploy(address(this), pauseProxy, clip);
+        YUsdsInstance memory inst = YUsdsDeploy.deploy(address(this), pauseProxy, address(new ClipMock(ILK)));
         yusds = YUsds(inst.yUsds);
         rateSetter = RateSetter(inst.rateSetter);
         conv = ConvLike(address(rateSetter.conv()));
 
         YUsdsConfig memory conf = YUsdsConfig({
-            clip        : clip,
+            clip        : address(yusds.clip()),
             syr         : 1000000001547125957863212448,
             cap         : type(uint256).max,
             line        : type(uint256).max,
@@ -226,7 +224,6 @@ contract RateSetterTest is DssTest {
         assertEq(step, 100);
 
         vm.startPrank(pauseProxy);
-
         vm.expectEmit(true, true, true, true);
         emit File(SYR, "min", 100);
         rateSetter.file(SYR, "min", 100);
@@ -247,7 +244,6 @@ contract RateSetterTest is DssTest {
         assertEq(step, 100);
 
         vm.startPrank(pauseProxy);
-
         vm.expectEmit(true, true, true, true);
         emit File(ILK, "min", 100);
         rateSetter.file(ILK, "min", 100);
@@ -290,16 +286,17 @@ contract RateSetterTest is DssTest {
         (uint256 syrTarget, uint256 dutyTarget) = (_syrBps() + 50, _dutyBps() + 50);
 
         vm.expectEmit(true, true, true, true);
-        emit Set(syrTarget, dutyTarget, 50_000_000 * RAD, 50_000_000 * WAD);
-        vm.prank(bud); rateSetter.set(syrTarget, dutyTarget, 50_000_000 * RAD, 50_000_000 * WAD);
+        emit Set(syrTarget, dutyTarget, 50_000_000 * RAD, 60_000_000 * WAD);
+        vm.prank(bud); rateSetter.set(syrTarget, dutyTarget, 50_000_000 * RAD, 60_000_000 * WAD);
 
         assertEq(yusds.syr(), conv.btor(syrTarget));
         assertEq(_duty(), conv.btor(dutyTarget));
         assertEq(yusds.line(), 50_000_000 * RAD);
-        assertEq(yusds.cap(), 50_000_000 * WAD);
+        assertEq(yusds.cap(), 60_000_000 * WAD);
     }
 
-    // check that can still set rates, even if previously the rates were outside of the range
+    // following tests check that can still set rates,
+    // even if previously the rates were outside of the range.
     function test_set_rates_above_max() public {
         dss.jug.drip(ILK);
         vm.startPrank(pauseProxy);
@@ -413,7 +410,7 @@ contract RateSetterTest is DssTest {
     }
 
     function test_revert_set_malfunctioning_conv() public {
-        // Clone the good conv code, so it can be used inside the broken one
+        // Clone the good conv code (before we break it below), so we can call conv.rtob() in MockBrokenConv
         vm.etch(address(0x123), address(conv).code);
 
         // Mutate the conv code that is used in rateSetter
