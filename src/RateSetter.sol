@@ -35,6 +35,16 @@ interface ConvLike {
 }
 
 contract RateSetter {
+    // --- Storage Variables ---
+    mapping(address => uint256) public wards;
+    mapping(address => uint256) public buds;
+    Cfg     public syrCfg;
+    Cfg     public dutyCfg;
+    uint256 public maxLine; // [rad]
+    uint256 public maxCap;  // [wad]
+    uint8   public bad; // Circuit breaker flag
+    uint64  public tau; // Cooldown period between rate changes in seconds
+    uint128 public toc; // Last time when rates were updated (Unix timestamp)
 
     // --- Structs ---
     // All values are in basis points (1 bp = 0.01%)
@@ -53,17 +63,6 @@ contract RateSetter {
     YUSDSLike public immutable yusds;
     ConvLike  public immutable conv;
     bytes32   public immutable ilk;
-
-    // --- Storage Variables ---
-    mapping(address => uint256) public wards;
-    mapping(address => uint256) public buds;
-    Cfg     public syrCfg;
-    Cfg     public dutyCfg;
-    uint256 public maxLine; // [rad]
-    uint256 public maxCap;  // [wad]
-    uint8   public bad; // Circuit breaker flag
-    uint64  public tau; // Cooldown period between rate changes in seconds
-    uint128 public toc; // Last time when rates were updated (Unix timestamp)
 
     // --- Events ---
     event Rely(address indexed usr);
