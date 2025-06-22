@@ -24,7 +24,7 @@ import "dss-interfaces/Interfaces.sol";
 
 import { YUsds } from "src/YUsds.sol";
 import { RateSetter } from "src/RateSetter.sol";
-
+import { YUsdsMom } from "src/YUsdsMom.sol";
 import { YUsdsInstance } from "./YUsdsInstance.sol";
 
 interface SPBEAMLike {
@@ -55,8 +55,12 @@ library YUsdsDeploy {
         ));
         ScriptTools.switchOwner(_rateSetter, deployer, owner);
 
+        YUsdsMom _mom = new YUsdsMom(_yUsds);
+        _mom.setOwner(owner);
+
         instance.yUsds      = _yUsds;
         instance.yUsdsImp   = _yUsdsImp;
         instance.rateSetter = _rateSetter;
+        instance.mom        = address(_mom);
     }
 }

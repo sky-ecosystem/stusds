@@ -44,10 +44,16 @@ interface RateSetterLike {
     function file(bytes32, bytes32, uint256) external;
     function kiss(address) external;
     function ilk() external view returns (bytes32);
+    function rely(address) external;
 }
 
 interface SPBEAMLike {
     function conv() external view returns (address);
+}
+
+interface YUsdsMomLike {
+    function yusds() external view returns (address);
+    function setAuthority(address) external;
 }
 
 struct YUsdsConfig {
@@ -92,6 +98,8 @@ library YUsdsInit {
         require(RateSetterLike(instance.rateSetter).yusds() == instance.yUsds, "YUsdsInit/yusds-does-not-match");
         require(RateSetterLike(instance.rateSetter).conv()  == SPBEAMLike(dss.chainlog.getAddress("MCD_SPBEAM")).conv());
 
+        require(YUsdsMomLike(instance.mom).yusds() == instance.yUsds, "YUsdsInit/yusds-mom-does-not-match");
+
         dss.vat.rely(instance.yUsds);
 
         YUsdsLike(instance.yUsds).drip();
@@ -119,12 +127,14 @@ library YUsdsInit {
 
         RateSetterLike(instance.rateSetter).kiss(cfg.bud);
 
+        // Mom Configuration
+        YUsdsLike(instance.yUsds).rely(instance.mom);
+        RateSetterLike(instance.rateSetter).rely(instance.mom);
+        YUsdsMomLike(instance.mom).setAuthority(dss.chainlog.getAddress("MCD_ADM"));
+
         dss.chainlog.setAddress("YUSDS",             instance.yUsds);
         dss.chainlog.setAddress("YUSDS_IMP",         instance.yUsdsImp);
         dss.chainlog.setAddress("YUSDS_RATE_SETTER", instance.rateSetter);
-
-        // TODO: Authorize mom in rate setter
-        // TODO: Set mom authority to MCD_ADM
-        // TODO: And add mom to chainlog
+        dss.chainlog.setAddress("YUSDS_MOM",         instance.mom);
     }
 }

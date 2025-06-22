@@ -20,4 +20,5 @@ struct YUsdsInstance {
     address yUsds;
     address yUsdsImp;
     address rateSetter;
+    address mom;
 }
