@@ -50,7 +50,6 @@ library YUsdsDeploy {
         ScriptTools.switchOwner(_yUsds, deployer, owner);
 
         address _rateSetter = address(new RateSetter(
-            chainlog.getAddress("MCD_JUG"),
             _yUsds,
             SPBEAMLike(chainlog.getAddress("MCD_SPBEAM")).conv()
         ));

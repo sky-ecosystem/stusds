@@ -23,6 +23,7 @@ interface JugLike {
 }
 
 interface YUSDSLike {
+    function jug() external view returns (address);
     function ilk() external view returns (bytes32);
     function syr() external view returns (uint256);
     function file(bytes32 what, uint256 data) external;
@@ -89,10 +90,10 @@ contract RateSetter {
         _;
     }
 
-    constructor(address _jug, address _yusds, address _conv) {
-        jug   = JugLike(_jug);
+    constructor(address _yusds, address _conv) {
         yusds = YUSDSLike(_yusds);
         conv  = ConvLike(_conv);
+        jug   = JugLike(yusds.jug());
         ilk   = yusds.ilk();
 
         wards[msg.sender] = 1;

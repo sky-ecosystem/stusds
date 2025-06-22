@@ -90,7 +90,6 @@ library YUsdsInit {
 
         require(cfg.syr >= RAY && cfg.syr <= RATES_ONE_HUNDRED_PCT, "YUsdsInit/syr-out-of-boundaries");
 
-        require(RateSetterLike(instance.rateSetter).jug()   == address(dss.jug), "YUsdsInit/jug-does-not-match");
         require(RateSetterLike(instance.rateSetter).yusds() == instance.yUsds, "YUsdsInit/yusds-does-not-match");
         require(RateSetterLike(instance.rateSetter).conv()  == SPBEAMLike(dss.chainlog.getAddress("MCD_SPBEAM")).conv());
 
