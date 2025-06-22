@@ -118,7 +118,7 @@ contract RateSetterTest is DssTest {
         dutyBps = _dutyBps();
     }
 
-    function test_deploy() public view {
+    function testDeploy() public view {
         // Rate setter part only
         assertEq(address(rateSetter.jug()), address(dss.jug));
         assertEq(address(rateSetter.yusds()), address(yusds));
@@ -128,7 +128,7 @@ contract RateSetterTest is DssTest {
         assertEq(rateSetter.wards(pauseProxy), 1);
     }
 
-    function test_init() public view {
+    function testInit() public view {
         // Rate setter part only
         assertEq(dss.jug.wards(address(rateSetter)), 1);
         assertEq(yusds.wards(address(rateSetter)), 1);
@@ -147,19 +147,19 @@ contract RateSetterTest is DssTest {
         assertEq(dss.chainlog.getAddress("YUSDS_RATE_SETTER"), address(rateSetter));
     }
 
-    function test_auth() public {
+    function testAuth() public {
         checkAuth(address(rateSetter), "RateSetter");
     }
 
-    function test_auth_methods() public {
+    function testAuthMethods() public {
         checkModifier(address(rateSetter), "RateSetter/not-authorized", [RateSetter.kiss.selector, RateSetter.diss.selector]);
     }
 
-    function test_toll_methods() public {
+    function testTollMethods() public {
         checkModifier(address(rateSetter), "RateSetter/not-facilitator", [RateSetter.set.selector]);
     }
 
-    function test_good_methods() public {
+    function testGoodMethods() public {
         vm.startPrank(pauseProxy);
         rateSetter.file("bad", 1);
         rateSetter.kiss(address(this));
@@ -168,7 +168,7 @@ contract RateSetterTest is DssTest {
         checkModifier(address(rateSetter), "RateSetter/module-halted", [RateSetter.set.selector]);
     }
 
-    function test_kiss() public {
+    function testKiss() public {
         address who = address(0x0ddaf);
         assertEq(rateSetter.buds(who), 0);
 
@@ -178,7 +178,7 @@ contract RateSetterTest is DssTest {
         assertEq(rateSetter.buds(who), 1);
     }
 
-    function test_diss() public {
+    function testDiss() public {
         address who = address(0x0ddaf);
         vm.prank(pauseProxy); rateSetter.kiss(who);
         assertEq(rateSetter.buds(who), 1);
@@ -189,7 +189,7 @@ contract RateSetterTest is DssTest {
         assertEq(rateSetter.buds(who), 0);
     }
 
-    function test_file() public {
+    function testFile() public {
         checkFileUint(address(rateSetter), "RateSetter", ["bad", "tau", "toc", "maxLine", "maxCap"]);
 
         vm.startPrank(pauseProxy);
@@ -215,7 +215,7 @@ contract RateSetterTest is DssTest {
         rateSetter.file("bad", 1);
     }
 
-    function test_file_syr() public {
+    function testFileSyr() public {
         (uint16 min, uint16 max, uint16 step) = rateSetter.syrCfg();
         assertEq(min, 1);
         assertEq(max, 3000);
@@ -235,7 +235,7 @@ contract RateSetterTest is DssTest {
         assertEq(step, 420);
     }
 
-    function test_file_ilk() public {
+    function testFileIlk() public {
         (uint16 min, uint16 max, uint16 step) = rateSetter.dutyCfg();
         assertEq(min, 1);
         assertEq(max, 3000);
@@ -255,7 +255,7 @@ contract RateSetterTest is DssTest {
         assertEq(step, 420);
     }
 
-    function test_revert_file_invalid() public {
+    function testRevertFileInvalid() public {
         vm.startPrank(pauseProxy);
         (uint16 min, uint16 max,) = rateSetter.dutyCfg();
 
@@ -280,7 +280,7 @@ contract RateSetterTest is DssTest {
         rateSetter.file(ILK, "min", 100);
     }
 
-    function test_set() public {
+    function testSet() public {
         (uint256 syrTarget, uint256 dutyTarget) = (_syrBps() + 50, _dutyBps() + 50);
 
         vm.expectEmit(true, true, true, true);
@@ -295,7 +295,7 @@ contract RateSetterTest is DssTest {
 
     // following tests check that can still set rates,
     // even if previously the rates were outside of the range.
-    function test_set_rates_above_max() public {
+    function testSetRatesAboveMax() public {
         dss.jug.drip(ILK);
         vm.startPrank(pauseProxy);
         yusds.file("syr", conv.btor(3050)); // outside range
@@ -310,7 +310,7 @@ contract RateSetterTest is DssTest {
         assertEq(_duty(), conv.btor(2999));
     }
 
-    function test_set_rates_below_min() public {
+    function testSetRatesBelowMin() public {
         dss.jug.drip(ILK);
         vm.startPrank(pauseProxy);
         yusds.file("syr", conv.btor(0)); // outside range
@@ -325,70 +325,70 @@ contract RateSetterTest is DssTest {
         assertEq(_duty(), conv.btor(50));
     }
 
-    function test_revert_set_syr_not_configured_rate() public {
+    function TestRevertSetSyrNotConfiguredRate() public {
         vm.prank(pauseProxy); rateSetter.file(SYR, "step", 0);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("RateSetter/rate-not-configured");
         vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
     }
 
-    function test_revert_set_duty_not_configured_rate() public {
+    function TestRevertSetDutyNotConfiguredRate() public {
         vm.prank(pauseProxy); rateSetter.file(ILK, "step", 0);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("RateSetter/rate-not-configured");
         vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
     }
 
-    function test_revert_set_syr_below_min() public {
+    function TestRevertSetSyrBelowMin() public {
         vm.prank(pauseProxy); rateSetter.file(SYR, "min", 100);
         uint256 dutyBps = _dutyBps();
         vm.expectRevert("RateSetter/below-min");
         vm.prank(bud); rateSetter.set(50, dutyBps, 0, 0);
     }
 
-    function test_revert_set_duty_below_min() public {
+    function TestRevertSetDutyBelowMin() public {
         vm.prank(pauseProxy); rateSetter.file(ILK, "min", 100);
         uint256 syrBps = _syrBps();
         vm.expectRevert("RateSetter/below-min");
         vm.prank(bud); rateSetter.set(syrBps, 50, 0, 0);
     }
 
-    function test_revert_set_syr_above_max() public {
+    function TestRevertSetSyrAboveMax() public {
         vm.prank(pauseProxy); rateSetter.file(SYR, "max", 100);
         uint256 dutyBps = _dutyBps();
         vm.expectRevert("RateSetter/above-max");
         vm.prank(bud); rateSetter.set(150, dutyBps, 0, 0);
     }
 
-    function test_revert_set_duty_above_max() public {
+    function TestRevertSetDutyAboveMax() public {
         vm.prank(pauseProxy); rateSetter.file(ILK, "max", 100);
         uint256 syrBps = _syrBps();
         vm.expectRevert("RateSetter/above-max");
         vm.prank(bud); rateSetter.set(syrBps, 150, 0, 0);
     }
 
-    function test_revert_set_syr_delta_above_step() public {
+    function TestRevertSetSyrDeltaAboveStep() public {
         vm.prank(pauseProxy); rateSetter.file(SYR, "step", 100);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("RateSetter/delta-above-step");
         vm.prank(bud); rateSetter.set(syrBps + 101, dutyBps, 0, 0);
     }
 
-    function test_revert_set_duty_delta_above_step() public {
+    function TestRevertSetDutyDeltaAboveStep() public {
         vm.prank(pauseProxy); rateSetter.file(ILK, "step", 100);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("RateSetter/delta-above-step");
         vm.prank(bud); rateSetter.set(syrBps, dutyBps + 101, 0, 0);
     }
 
-    function test_revert_line_too_high() public {
+    function TestRevertLineTooHigh() public {
         vm.prank(pauseProxy); rateSetter.file("maxLine", 100 * RAD);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("RateSetter/line-too-high");
         vm.prank(bud); rateSetter.set(syrBps, dutyBps, 100 * RAD + 1, 0);
     }
 
-    function test_revert_cap_too_high() public {
+    function TestRevertCapTooHigh() public {
         vm.prank(pauseProxy); rateSetter.file("maxCap", 100 * WAD);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("RateSetter/cap-too-high");
@@ -396,7 +396,7 @@ contract RateSetterTest is DssTest {
         rateSetter.set(syrBps, dutyBps, 0, 100 * WAD + 1);
     }
 
-    function test_revert_set_before_cooldown() public {
+    function TestRevertSetBeforeCooldown() public {
         vm.prank(pauseProxy); rateSetter.file("tau", 100);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
@@ -407,7 +407,7 @@ contract RateSetterTest is DssTest {
         vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
     }
 
-    function test_revert_set_malfunctioning_conv() public {
+    function TestRevertSetMalfunctioningConv() public {
         // Clone the good conv code (before we break it below), so we can call conv.rtob() in MockBrokenConv
         vm.etch(address(0x123), address(conv).code);
 
