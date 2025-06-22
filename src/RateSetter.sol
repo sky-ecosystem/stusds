@@ -132,7 +132,7 @@ contract RateSetter {
             require(data <= type(uint128).max, "RateSetter/invalid-toc-value");
             toc = uint128(data);
         } else if (what == "maxLine") {
-            require(data == 0 || data > RAD, "RateSetter/maxLine-insane-value");
+            require(data == 0 || data >= RAD, "RateSetter/maxLine-irrelevant-value");
             maxLine = data;
         } else if (what == "maxCap") {
             require(data < RAD, "RateSetter/maxCap-insane-value");

@@ -205,8 +205,8 @@ contract RateSetterTest is DssTest {
         vm.expectRevert("RateSetter/invalid-toc-value");
         rateSetter.file("toc", uint256(type(uint128).max) + 1);
 
-        vm.expectRevert("RateSetter/maxLine-insane-value");
-        rateSetter.file("maxLine", RAD);
+        vm.expectRevert("RateSetter/maxLine-irrelevant-value");
+        rateSetter.file("maxLine", RAD - 1);
 
         vm.expectRevert("RateSetter/maxCap-insane-value");
         rateSetter.file("maxCap", 1e27 * WAD);
