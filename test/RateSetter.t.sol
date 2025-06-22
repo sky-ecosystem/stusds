@@ -126,7 +126,6 @@ contract RateSetterTest is DssTest {
         assertEq(rateSetter.ilk(), ILK);
         assertEq(rateSetter.wards(address(this)), 0);
         assertEq(rateSetter.wards(pauseProxy), 1);
-        // assertEq(rateSetter.wards(address(mom)), 1); // TODO: add when mom is added
     }
 
     function test_init() public view {
@@ -146,7 +145,6 @@ contract RateSetterTest is DssTest {
         assertEq(dutyStep, 100);
         assertEq(rateSetter.buds(bud), 1);
         assertEq(dss.chainlog.getAddress("YUSDS_RATE_SETTER"), address(rateSetter));
-        //assertEq(mom.authority(), dss.chainlog.getAddress("MCD_ADM")); // TODO: add when mom is added
     }
 
     function test_auth() public {
