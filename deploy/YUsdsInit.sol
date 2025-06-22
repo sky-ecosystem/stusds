@@ -43,7 +43,6 @@ interface RateSetterLike {
     function file(bytes32, uint256) external;
     function file(bytes32, bytes32, uint256) external;
     function kiss(address) external;
-    function rely(address) external;
     function ilk() external view returns (bytes32);
 }
 
@@ -126,5 +125,6 @@ library YUsdsInit {
 
         // TODO: Authorize mom in rate setter
         // TODO: Set mom authority to MCD_ADM
+        // TODO: And add mom to chainlog
     }
 }
