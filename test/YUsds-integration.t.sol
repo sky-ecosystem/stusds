@@ -1371,6 +1371,8 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testCutChiMinimal() public {
+        // Extreme case where almost everything is cut but the very minimal chi remains.
+        // New deposits should still preserve value.
         deal(address(usds), address(this), 999_999_950e18);
         token.deposit(999_999_900e18, address(0x222));
 
@@ -1402,6 +1404,8 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testCutChiZero() public {
+        // Extreme case where everything is cut making chi zero.
+        // New deposits are forbidden as there isn't any more value in the system.
         deal(address(usds), address(this), 999_999_950e18);
         token.deposit(999_999_900e18, address(0x222));
 
@@ -1437,6 +1441,8 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testCutChiZeroDueRounding() public {
+        // Extreme case where almost everything is cut and due to rounding chi ends up being zero.
+        // New deposits are forbidden as there isn't any more value in the system.
         vm.prank(pauseProxy); dss.vat.suck(address(0), usdsJoin, 10_000_000_000e45);
         deal(address(usds), address(this), 9_999_999_950e18);
         token.deposit(9_999_999_900e18, address(0x222));
@@ -1468,7 +1474,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.totalAssets(), 100e18);
 
         // Proving that even without assets second cut call won't fail.
-        // This is important to make sure any auction could revert if there is bad debt accrual
+        // This is important to make sure any auction shouldn't revert even if yusds gets to irreversible state
         vm.expectEmit();
         emit Cut(100e18, 1e27, 0);
         vm.prank(pauseProxy); token.cut(100e18 * 1e27);
