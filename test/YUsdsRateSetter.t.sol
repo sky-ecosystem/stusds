@@ -346,77 +346,77 @@ contract YUsdsRateSetterTest is DssTest {
         assertEq(_duty(), conv.btor(50));
     }
 
-    function TestRevertSetSyrNotConfiguredRate() public {
+    function testRevertSetSyrNotConfiguredRate() public {
         vm.prank(pauseProxy); rateSetter.file(SYR, "step", 0);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/rate-not-configured");
         vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
     }
 
-    function TestRevertSetDutyNotConfiguredRate() public {
+    function testRevertSetDutyNotConfiguredRate() public {
         vm.prank(pauseProxy); rateSetter.file(ILK, "step", 0);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/rate-not-configured");
         vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
     }
 
-    function TestRevertSetSyrBelowMin() public {
+    function testRevertSetSyrBelowMin() public {
         vm.prank(pauseProxy); rateSetter.file(SYR, "min", 100);
         uint256 dutyBps = _dutyBps();
         vm.expectRevert("YUsdsRateSetter/below-min");
         vm.prank(bud); rateSetter.set(50, dutyBps, 0, 0);
     }
 
-    function TestRevertSetDutyBelowMin() public {
+    function testRevertSetDutyBelowMin() public {
         vm.prank(pauseProxy); rateSetter.file(ILK, "min", 100);
         uint256 syrBps = _syrBps();
         vm.expectRevert("YUsdsRateSetter/below-min");
         vm.prank(bud); rateSetter.set(syrBps, 50, 0, 0);
     }
 
-    function TestRevertSetSyrAboveMax() public {
+    function testRevertSetSyrAboveMax() public {
         vm.prank(pauseProxy); rateSetter.file(SYR, "max", 100);
         uint256 dutyBps = _dutyBps();
         vm.expectRevert("YUsdsRateSetter/above-max");
         vm.prank(bud); rateSetter.set(150, dutyBps, 0, 0);
     }
 
-    function TestRevertSetDutyAboveMax() public {
+    function testRevertSetDutyAboveMax() public {
         vm.prank(pauseProxy); rateSetter.file(ILK, "max", 100);
         uint256 syrBps = _syrBps();
         vm.expectRevert("YUsdsRateSetter/above-max");
         vm.prank(bud); rateSetter.set(syrBps, 150, 0, 0);
     }
 
-    function TestRevertSetSyrDeltaAboveStep() public {
+    function testRevertSetSyrDeltaAboveStep() public {
         vm.prank(pauseProxy); rateSetter.file(SYR, "step", 100);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/delta-above-step");
         vm.prank(bud); rateSetter.set(syrBps + 101, dutyBps, 0, 0);
     }
 
-    function TestRevertSetDutyDeltaAboveStep() public {
+    function testRevertSetDutyDeltaAboveStep() public {
         vm.prank(pauseProxy); rateSetter.file(ILK, "step", 100);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/delta-above-step");
         vm.prank(bud); rateSetter.set(syrBps, dutyBps + 101, 0, 0);
     }
 
-    function TestRevertLineTooHigh() public {
+    function testRevertLineTooHigh() public {
         vm.prank(pauseProxy); rateSetter.file("maxLine", 100 * RAD);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/line-too-high");
         vm.prank(bud); rateSetter.set(syrBps, dutyBps, 100 * RAD + 1, 0);
     }
 
-    function TestRevertCapTooHigh() public {
+    function testRevertCapTooHigh() public {
         vm.prank(pauseProxy); rateSetter.file("maxCap", 100 * WAD);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/cap-too-high");
         vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 100 * WAD + 1);
     }
 
-    function TestRevertSetBeforeCooldown() public {
+    function testRevertSetBeforeCooldown() public {
         vm.prank(pauseProxy); rateSetter.file("tau", 100);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
@@ -427,7 +427,7 @@ contract YUsdsRateSetterTest is DssTest {
         vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
     }
 
-    function TestRevertSetMalfunctioningConv() public {
+    function testRevertSetMalfunctioningConv() public {
         // Clone the good conv code (before we break it below), so we can call conv.rtob() in MockBrokenConv
         vm.etch(address(0x123), address(conv).code);
 
