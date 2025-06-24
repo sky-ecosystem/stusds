@@ -91,6 +91,15 @@ contract YUsdsMomTest is DssTest {
         assertEq(dss.chainlog.getAddress("YUSDS_MOM"), address(mom));
     }
 
+    function testConstructor() public {
+        vm.expectEmit(true, true, true, true);
+        emit Rely(address(this));
+        YUsdsMom mom2 = new YUsdsMom(address(yusds));
+
+        assertEq(address(mom2.yusds()), address(yusds));
+        assertEq(mom2.owner(), address(this));
+    }
+
     function testOnlyOwnerMethods() public {
         checkModifier(
             address(mom), "YUsdsMom/not-owner", [YUsdsMom.setOwner.selector, YUsdsMom.setAuthority.selector]

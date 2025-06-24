@@ -34,6 +34,10 @@ interface YUSDSLike {
     function syr() external view returns (uint256);
 }
 
+interface SPBEAMLike {
+    function conv() external view returns (address);
+}
+
 contract MockBrokenConv {
     ConvLike immutable internal conv;
 
@@ -145,6 +149,21 @@ contract YUsdsRateSetterTest is DssTest {
         assertEq(dutyStep, 100);
         assertEq(rateSetter.buds(bud), 1);
         assertEq(dss.chainlog.getAddress("YUSDS_RATE_SETTER"), address(rateSetter));
+    }
+
+    function testConstructor() public {
+        vm.expectEmit(true, true, true, true);
+        emit Rely(address(this));
+        YUsdsRateSetter rateSetter2 = new YUsdsRateSetter(
+            dss.chainlog.getAddress("YUSDS"),
+            SPBEAMLike(dss.chainlog.getAddress("MCD_SPBEAM")).conv()
+        );
+
+        assertEq(address(rateSetter2.yusds()), address(yusds));
+        assertEq(address(rateSetter2.conv()), address(conv));
+        assertEq(address(rateSetter2.jug()), address(dss.jug));
+        assertEq(rateSetter2.ilk(), ILK);
+        assertEq(rateSetter2.wards(address(this)), 1);
     }
 
     function testAuth() public {
