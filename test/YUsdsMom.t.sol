@@ -17,7 +17,7 @@ pragma solidity ^0.8.21;
 
 import "dss-test/DssTest.sol";
 
-import { RateSetter } from "src/RateSetter.sol";
+import { YUsdsRateSetter } from "src/YUsdsRateSetter.sol";
 import { YUsds } from "src/YUsds.sol";
 import { YUsdsInstance } from "deploy/YUsdsInstance.sol";
 import { YUsdsDeploy } from "deploy/YUsdsDeploy.sol";
@@ -32,12 +32,12 @@ interface ChiefLike {
 contract YUsdsMomTest is DssTest {
     address constant CHAINLOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
-    DssInstance dss;
-    ChiefLike   chief;
-    RateSetter  rateSetter;
-    YUsds       yusds;
-    YUsdsMom    mom;
-    address     pauseProxy;
+    DssInstance     dss;
+    ChiefLike       chief;
+    YUsdsRateSetter rateSetter;
+    YUsds           yusds;
+    YUsdsMom        mom;
+    address         pauseProxy;
 
     event SetOwner(address indexed owner);
     event SetAuthority(address indexed authority);
@@ -53,7 +53,7 @@ contract YUsdsMomTest is DssTest {
 
         YUsdsInstance memory inst = YUsdsDeploy.deploy(address(this), pauseProxy, address(new ClipMock("LSEV2-SKY-A")));
         yusds = YUsds(inst.yUsds);
-        rateSetter = RateSetter(inst.rateSetter);
+        rateSetter = YUsdsRateSetter(inst.rateSetter);
         mom = YUsdsMom(inst.mom);
 
         YUsdsConfig memory conf = YUsdsConfig({

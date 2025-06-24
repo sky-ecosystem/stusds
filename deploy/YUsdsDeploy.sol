@@ -23,7 +23,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import "dss-interfaces/Interfaces.sol";
 
 import { YUsds } from "src/YUsds.sol";
-import { RateSetter } from "src/RateSetter.sol";
+import { YUsdsRateSetter } from "src/YUsdsRateSetter.sol";
 import { YUsdsMom } from "src/YUsdsMom.sol";
 import { YUsdsInstance } from "./YUsdsInstance.sol";
 
@@ -49,7 +49,7 @@ library YUsdsDeploy {
         address _yUsds = address(new ERC1967Proxy(_yUsdsImp, abi.encodeCall(YUsds.initialize, ())));
         ScriptTools.switchOwner(_yUsds, deployer, owner);
 
-        address _rateSetter = address(new RateSetter(
+        address _rateSetter = address(new YUsdsRateSetter(
             _yUsds,
             SPBEAMLike(chainlog.getAddress("MCD_SPBEAM")).conv()
         ));
