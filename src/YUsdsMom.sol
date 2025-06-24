@@ -74,12 +74,12 @@ contract YUsdsMom {
 
     // --- Internal Functions ---
     function isAuthorized(address src, bytes4 sig) internal view returns (bool) {
-        if (src == owner || src == address(this)) {
+        if (src == owner) {
             return true;
-        } else if (authority != address(0)) {
-            return AuthorityLike(authority).canCall(src, address(this), sig);
-        } else {
+        } else if (authority == address(0)) {
             return false;
+        } else {
+            return AuthorityLike(authority).canCall(src, address(this), sig);
         }
     }
 
