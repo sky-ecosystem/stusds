@@ -238,7 +238,11 @@ contract YUsdsRateSetterTest is DssTest {
         vm.expectEmit(true, true, true, true);
         emit File(SYR, "min", 100);
         rateSetter.file(SYR, "min", 100);
+        vm.expectEmit(true, true, true, true);
+        emit File(SYR, "max", 3000);
         rateSetter.file(SYR, "max", 3000);
+        vm.expectEmit(true, true, true, true);
+        emit File(SYR, "step", 420);
         rateSetter.file(SYR, "step", 420);
         vm.stopPrank();
 
@@ -258,7 +262,11 @@ contract YUsdsRateSetterTest is DssTest {
         vm.expectEmit(true, true, true, true);
         emit File(ILK, "min", 100);
         rateSetter.file(ILK, "min", 100);
+        vm.expectEmit(true, true, true, true);
+        emit File(ILK, "max", 3000);
         rateSetter.file(ILK, "max", 3000);
+        vm.expectEmit(true, true, true, true);
+        emit File(ILK, "step", 420);
         rateSetter.file(ILK, "step", 420);
         vm.stopPrank();
 
@@ -405,8 +413,7 @@ contract YUsdsRateSetterTest is DssTest {
         vm.prank(pauseProxy); rateSetter.file("maxCap", 100 * WAD);
         (uint256 syrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/cap-too-high");
-        vm.prank(bud);
-        rateSetter.set(syrBps, dutyBps, 0, 100 * WAD + 1);
+        vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 100 * WAD + 1);
     }
 
     function TestRevertSetBeforeCooldown() public {
