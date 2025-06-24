@@ -23,16 +23,16 @@ interface YUsdsLike {
     function version() external view returns (string memory);
     function getImplementation() external view returns (address);
     function usdsJoin() external view returns (address);
-    function vat() external view returns (address);
     function jug() external view returns (address);
     function clip() external view returns (address);
     function vow() external view returns (address);
+    function ilk() external view returns (bytes32);
     function file(bytes32, uint256) external;
     function drip() external returns (uint256);
 }
 
-interface UsdsJoinLike {
-    function usds() external view returns (address);
+interface AutoLineLike {
+    function remIlk(bytes32) external;
 }
 
 struct YUsdsConfig {
@@ -63,6 +63,8 @@ library YUsdsInit {
         require(cfg.syr >= RAY && cfg.syr <= RATES_ONE_HUNDRED_PCT, "YUsdsInit/syr-out-of-boundaries");
 
         dss.vat.rely(instance.yUsds);
+
+        AutoLineLike(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).remIlk(YUsdsLike(instance.yUsds).ilk());
 
         YUsdsLike(instance.yUsds).drip();
         YUsdsLike(instance.yUsds).file("syr", cfg.syr);
