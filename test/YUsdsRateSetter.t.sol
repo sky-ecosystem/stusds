@@ -187,18 +187,12 @@ contract YUsdsRateSetterTest is DssTest {
         checkModifier(address(rateSetter), "YUsdsRateSetter/module-halted", [YUsdsRateSetter.set.selector]);
     }
 
-    function testKiss() public {
+    function testKissDiss() public {
         address who = address(0x0ddaf);
         assertEq(rateSetter.buds(who), 0);
 
         vm.expectEmit(true, true, true, true);
         emit Kiss(who);
-        vm.prank(pauseProxy); rateSetter.kiss(who);
-        assertEq(rateSetter.buds(who), 1);
-    }
-
-    function testDiss() public {
-        address who = address(0x0ddaf);
         vm.prank(pauseProxy); rateSetter.kiss(who);
         assertEq(rateSetter.buds(who), 1);
 
