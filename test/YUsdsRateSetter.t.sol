@@ -239,8 +239,8 @@ contract YUsdsRateSetterTest is DssTest {
         emit File(SYR, "min", 100);
         rateSetter.file(SYR, "min", 100);
         vm.expectEmit(true, true, true, true);
-        emit File(SYR, "max", 3000);
-        rateSetter.file(SYR, "max", 3000);
+        emit File(SYR, "max", 2000);
+        rateSetter.file(SYR, "max", 2000);
         vm.expectEmit(true, true, true, true);
         emit File(SYR, "step", 420);
         rateSetter.file(SYR, "step", 420);
@@ -248,7 +248,7 @@ contract YUsdsRateSetterTest is DssTest {
 
         (min, max, step) = rateSetter.syrCfg();
         assertEq(min, 100);
-        assertEq(max, 3000);
+        assertEq(max, 2000);
         assertEq(step, 420);
     }
 
@@ -263,8 +263,8 @@ contract YUsdsRateSetterTest is DssTest {
         emit File(ILK, "min", 100);
         rateSetter.file(ILK, "min", 100);
         vm.expectEmit(true, true, true, true);
-        emit File(ILK, "max", 3000);
-        rateSetter.file(ILK, "max", 3000);
+        emit File(ILK, "max", 2000);
+        rateSetter.file(ILK, "max", 2000);
         vm.expectEmit(true, true, true, true);
         emit File(ILK, "step", 420);
         rateSetter.file(ILK, "step", 420);
@@ -272,7 +272,7 @@ contract YUsdsRateSetterTest is DssTest {
 
         (min, max, step) = rateSetter.dutyCfg();
         assertEq(min, 100);
-        assertEq(max, 3000);
+        assertEq(max, 2000);
         assertEq(step, 420);
     }
 
