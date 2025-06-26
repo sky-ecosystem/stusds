@@ -93,7 +93,7 @@ contract YUsdsMomTest is DssTest {
 
     function testConstructor() public {
         vm.expectEmit(true, true, true, true);
-        emit Rely(address(this));
+        emit SetOwner(address(this));
         YUsdsMom mom2 = new YUsdsMom(address(yusds));
 
         assertEq(address(mom2.yusds()), address(yusds));
