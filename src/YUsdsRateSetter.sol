@@ -56,8 +56,8 @@ contract YUsdsRateSetter {
     }
 
     // --- Constants ---
-    uint256 public constant RAY = 10 ** 27;
-    uint256 public constant RAD = 10 ** 45;
+    uint256 private constant RAY = 10 ** 27;
+    uint256 private constant RAD = 10 ** 45;
 
     // --- Immutables ---
     JugLike   public immutable jug;
