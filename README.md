@@ -17,9 +17,9 @@ Users can redeem their yUSDS to USDS, as long as there is enough withdrawable US
 The yUSDS contract sets the stake engine debt ceiling dynamically, as part of its different actions.
 
 Conversely, the yUSDS supply rate and stake engine borrow rate are set asynchronously through privileged configurations (`file()`).
-Those configurations are managed through the RateSetter contract, which allows governance-configured operators to set the params, with some security restrictions.
+Those configurations are managed through the YusdsRateSetter contract, which allows governance-configured operators to set the params, with some security restrictions.
 
-Similarly, the RateSetter also sets the yUSDS supply cap and max debt ceiling, also with some governance-configured limitations. 
+Similarly, the YusdsRateSetter also sets the yUSDS supply cap and max debt ceiling, also with some governance-configured limitations.
 
 The yUSDS contract supports ERC4626. It uses the ERC-1822 UUPS pattern for upgradeability and the ERC-1967 proxy storage slots standard.
 It is important that the `YUsdsDeploy` library sequence be used for deploying.
