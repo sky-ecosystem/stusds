@@ -1,10 +1,25 @@
 # Yield USDS
 
-// TODO: The description here should be updated
+An implementation of a yield-bearing USDS token, which aims at ensuring that all SKY-backed borrowing is funded by segregated risk capital.
+Depositors take on several risks, such as stake engine bad debt accrual, or Sky governance risk (see `Trust Assumptions and Suppliers Considerations` below).
 
-A tokenized implementation of a savings rate for USDS. Supports ERC4626. Share to asset conversions are real-time even if `drip` hasn't been called in a while.
+## Overview
 
-The contract uses the ERC-1822 UUPS pattern for upgradeability and the ERC-1967 proxy storage slots standard.
+Users can deposit USDS to mint yUSDS up to a defined global cap.
+
+Users can redeem their yUSDS to USDS, as long as there is enough withdrawable USDS, which is determined by:
+* Total deposited funds and accrued yield.
+* Existing stake engine debt.
+* Amount of USDS currently in auction (disregarding the liquidation penalty).
+* Amount of stake engine bad debt, which was written off when concluding past auctions.
+* Past governance slashing operations. 
+
+The yUSDS contract sets the stake engine debt ceiling dynamically, as part of its different actions.
+Conversely, the yUSDS supply rate and stake engine borrow rate are set asynchronously through privileged configurations (`file()`).
+Those configurations are managed through the RateSetter contract, which allows governance-configured operators to set the params, with some security restrictions.
+Similarly, the RateSetter also sets the yUSDS supply cap and max debt ceiling, also with some governance-configured limitations. 
+
+The yUSDS contract supports ERC4626. It uses the ERC-1822 UUPS pattern for upgradeability and the ERC-1967 proxy storage slots standard.
 It is important that the `YUsdsDeploy` library sequence be used for deploying.
 
 #### OZ upgradeability validations
