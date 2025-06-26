@@ -29,10 +29,31 @@ interface YUsdsLike {
     function ilk() external view returns (bytes32);
     function file(bytes32, uint256) external;
     function drip() external returns (uint256);
+    function rely(address) external;
 }
 
 interface AutoLineLike {
     function remIlk(bytes32) external;
+}
+
+interface RateSetterLike {
+    function jug() external view returns (address);
+    function yusds() external view returns (address);
+    function conv() external view returns (address);
+    function file(bytes32, uint256) external;
+    function file(bytes32, bytes32, uint256) external;
+    function kiss(address) external;
+    function ilk() external view returns (bytes32);
+    function rely(address) external;
+}
+
+interface SPBEAMLike {
+    function conv() external view returns (address);
+}
+
+interface YUsdsMomLike {
+    function yusds() external view returns (address);
+    function setAuthority(address) external;
 }
 
 struct YUsdsConfig {
@@ -40,6 +61,18 @@ struct YUsdsConfig {
     uint256 syr;
     uint256 cap;
     uint256 line;
+
+    // RateSetter configuration
+    uint256 tau;
+    uint256 maxLine;
+    uint256 maxCap;
+    uint256 minSyrBps;
+    uint256 maxSyrBps;
+    uint256 stepSyrBps;
+    uint256 minDutyBps;
+    uint256 maxDutyBps;
+    uint256 stepDutyBps;
+    address bud;
 }
 
 library YUsdsInit {
@@ -62,16 +95,48 @@ library YUsdsInit {
 
         require(cfg.syr >= RAY && cfg.syr <= RATES_ONE_HUNDRED_PCT, "YUsdsInit/syr-out-of-boundaries");
 
+        require(RateSetterLike(instance.rateSetter).yusds() == instance.yUsds, "YUsdsInit/yusds-does-not-match");
+        require(RateSetterLike(instance.rateSetter).conv()  == SPBEAMLike(dss.chainlog.getAddress("MCD_SPBEAM")).conv());
+
+        require(YUsdsMomLike(instance.mom).yusds() == instance.yUsds, "YUsdsInit/yusds-mom-does-not-match");
+
         dss.vat.rely(instance.yUsds);
 
         AutoLineLike(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).remIlk(YUsdsLike(instance.yUsds).ilk());
 
         YUsdsLike(instance.yUsds).drip();
-        YUsdsLike(instance.yUsds).file("syr", cfg.syr);
-        YUsdsLike(instance.yUsds).file("cap", cfg.cap);
+        YUsdsLike(instance.yUsds).file("syr",  cfg.syr);
+        YUsdsLike(instance.yUsds).file("cap",  cfg.cap);
         YUsdsLike(instance.yUsds).file("line", cfg.line);
 
-        dss.chainlog.setAddress("YUSDS",     instance.yUsds);
-        dss.chainlog.setAddress("YUSDS_IMP", instance.yUsdsImp);
+        // RateSetter Configuration
+        dss.jug.rely(instance.rateSetter);
+        YUsdsLike(instance.yUsds).rely(instance.rateSetter);
+
+        RateSetterLike(instance.rateSetter).file("tau",     cfg.tau);
+        RateSetterLike(instance.rateSetter).file("maxLine", cfg.maxLine);
+        RateSetterLike(instance.rateSetter).file("maxCap",  cfg.maxCap);
+
+        // Note: we configure max first on purpose to initially pass the max > min validation
+        RateSetterLike(instance.rateSetter).file("SYR", "max",  cfg.maxSyrBps);
+        RateSetterLike(instance.rateSetter).file("SYR", "min",  cfg.minSyrBps);
+        RateSetterLike(instance.rateSetter).file("SYR", "step", cfg.stepSyrBps);
+
+        bytes32 ilk = RateSetterLike(instance.rateSetter).ilk();
+        RateSetterLike(instance.rateSetter).file(ilk, "max",  cfg.maxDutyBps);
+        RateSetterLike(instance.rateSetter).file(ilk, "min",  cfg.minDutyBps);
+        RateSetterLike(instance.rateSetter).file(ilk, "step", cfg.stepDutyBps);
+
+        RateSetterLike(instance.rateSetter).kiss(cfg.bud);
+
+        // Mom Configuration
+        YUsdsLike(instance.yUsds).rely(instance.mom);
+        RateSetterLike(instance.rateSetter).rely(instance.mom);
+        YUsdsMomLike(instance.mom).setAuthority(dss.chainlog.getAddress("MCD_ADM"));
+
+        dss.chainlog.setAddress("YUSDS",             instance.yUsds);
+        dss.chainlog.setAddress("YUSDS_IMP",         instance.yUsdsImp);
+        dss.chainlog.setAddress("YUSDS_RATE_SETTER", instance.rateSetter);
+        dss.chainlog.setAddress("YUSDS_MOM",         instance.mom);
     }
 }

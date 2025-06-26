@@ -100,7 +100,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         LOG = ChainlogAbstract(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
         dss = MCD.loadFromChainlog(LOG);
-        
+
         pauseProxy = LOG.getAddress("MCD_PAUSE_PROXY");
         usds = UsdsLike(LOG.getAddress("USDS"));
         usdsJoin = LOG.getAddress("USDS_JOIN");
@@ -112,7 +112,17 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
             clip: address(clip),
             syr: 1000000001547125957863212448,
             cap: type(uint256).max,
-            line: type(uint256).max
+            line: type(uint256).max,
+            tau: 0, // passnig zeros as RateSetter will not be used in this test
+            maxLine: 0,
+            maxCap: 0,
+            maxDutyBps: 0,
+            minDutyBps: 0,
+            stepDutyBps: 0,
+            maxSyrBps: 0,
+            minSyrBps: 0,
+            stepSyrBps: 0,
+            bud: address(0)
         });
         vm.warp(block.timestamp + 10);
         vm.startPrank(pauseProxy);
@@ -1361,6 +1371,8 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testCutChiMinimal() public {
+        // Extreme case where almost everything is cut but the very minimal chi remains.
+        // New deposits should still preserve value.
         deal(address(usds), address(this), 999_999_950e18);
         token.deposit(999_999_900e18, address(0x222));
 
@@ -1392,6 +1404,8 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testCutChiZero() public {
+        // Extreme case where everything is cut making chi zero.
+        // New deposits are forbidden as there isn't any more value in the system.
         deal(address(usds), address(this), 999_999_950e18);
         token.deposit(999_999_900e18, address(0x222));
 
@@ -1427,6 +1441,8 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testCutChiZeroDueRounding() public {
+        // Extreme case where almost everything is cut and due to rounding chi ends up being zero.
+        // New deposits are forbidden as there isn't any more value in the system.
         vm.prank(pauseProxy); dss.vat.suck(address(0), usdsJoin, 10_000_000_000e45);
         deal(address(usds), address(this), 9_999_999_950e18);
         token.deposit(9_999_999_900e18, address(0x222));
@@ -1458,7 +1474,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.totalAssets(), 100e18);
 
         // Proving that even without assets second cut call won't fail.
-        // This is important to make sure any auction could revert if there is bad debt accrual
+        // This is important to make sure any auction shouldn't revert even if yusds gets to irreversible state
         vm.expectEmit();
         emit Cut(100e18, 1e27, 0);
         vm.prank(pauseProxy); token.cut(100e18 * 1e27);
