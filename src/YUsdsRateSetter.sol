@@ -25,7 +25,7 @@ interface JugLike {
 interface YUSDSLike {
     function jug() external view returns (address);
     function ilk() external view returns (bytes32);
-    function syr() external view returns (uint256);
+    function ysr() external view returns (uint256);
     function file(bytes32 what, uint256 data) external;
     function drip() external;
 }
@@ -39,7 +39,7 @@ contract YUsdsRateSetter {
     // --- Storage Variables ---
     mapping(address => uint256) public wards;
     mapping(address => uint256) public buds;
-    Cfg     public syrCfg;
+    Cfg     public ysrCfg;
     Cfg     public dutyCfg;
     uint256 public maxLine; // [rad]
     uint256 public maxCap;  // [wad]
@@ -72,7 +72,7 @@ contract YUsdsRateSetter {
     event Diss(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
     event File(bytes32 indexed id, bytes32 indexed what, uint256 data);
-    event Set(uint256 syrBps, uint256 dutyBps, uint256 line, uint256 cap);
+    event Set(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap);
 
     // --- Modifiers ---
     modifier auth() {
@@ -143,7 +143,7 @@ contract YUsdsRateSetter {
 
     function file(bytes32 id, bytes32 what, uint256 data) external auth {
         Cfg storage cfg;
-        if      (id == "SYR") cfg = syrCfg;
+        if      (id == "YSR") cfg = ysrCfg;
         else if (id == ilk)   cfg = dutyCfg;
         else revert("YUsdsRateSetter/file-unrecognized-id");
 
@@ -182,17 +182,17 @@ contract YUsdsRateSetter {
 
     // Notes:
     // - It is intended to rewrite the same values, emit the event, and reset the toc count, even if there is no change.
-    function set(uint256 syrBps, uint256 dutyBps, uint256 line, uint256 cap) external toll good {
+    function set(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) external toll good {
         require(block.timestamp >= tau + toc, "YUsdsRateSetter/too-early");
         toc = uint128(block.timestamp);
 
         uint256 ray = _calcRate({
-            bps    : syrBps,
-            oldBps : conv.rtob(yusds.syr()),
-            cfg    : syrCfg
+            bps    : ysrBps,
+            oldBps : conv.rtob(yusds.ysr()),
+            cfg    : ysrCfg
         });
         yusds.drip();
-        yusds.file("syr", ray);
+        yusds.file("ysr", ray);
 
         (uint256 duty,) = jug.ilks(ilk);
         ray = _calcRate({
@@ -209,6 +209,6 @@ contract YUsdsRateSetter {
         require(cap <= maxCap, "YUsdsRateSetter/cap-too-high");
         yusds.file("cap", cap);
 
-        emit Set(syrBps, dutyBps, line, cap);
+        emit Set(ysrBps, dutyBps, line, cap);
     }
 }

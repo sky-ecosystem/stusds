@@ -45,10 +45,10 @@ pragma solidity ^0.8.21;
 //         yUsdsOwner = yUsdsOwner_;
 //     }
 
-//     function setSyr(uint256 syr) external {
-//         numCalls["setSyr"]++;
-//         syr = bound(syr, RAY, 1000000021979553151239153027); // between 0% and 100% apy
-//         vm.prank(yUsdsOwner); token.file("syr", syr);
+//     function setYsr(uint256 ysr) external {
+//         numCalls["setYsr"]++;
+//         ysr = bound(ysr, RAY, 1000000021979553151239153027); // between 0% and 100% apy
+//         vm.prank(yUsdsOwner); token.file("ysr", ysr);
 //     }
 
 //     function warp(uint256 secs) external {
@@ -125,7 +125,7 @@ pragma solidity ^0.8.21;
 
 //          // uncomment and fill to only call specific functions
 //         bytes4[] memory selectors = new bytes4[](9);
-//         selectors[0] = YUsdsHandler.setSyr.selector;
+//         selectors[0] = YUsdsHandler.setYsr.selector;
 //         selectors[1] = YUsdsHandler.warp.selector;
 //         selectors[2] = YUsdsHandler.drip.selector;
 //         selectors[3] = YUsdsHandler.deposit.selector;
@@ -144,7 +144,7 @@ pragma solidity ^0.8.21;
 //     }
 
 //     function invariant_usds_balance_vs_redeemable() external view {
-//         // for only setSyr, warp, drip
+//         // for only setYsr, warp, drip
 //         // assertEq(usds.balanceOf(address(token)), token.totalSupply() * token.chi() / RAY);
 
 //         // for everything
@@ -155,7 +155,7 @@ pragma solidity ^0.8.21;
 //         console.log("------------------");
 
 //         console.log("\nCall Summary\n");
-//         console.log("setSyr", handler.numCalls("setSyr"));
+//         console.log("setYsr", handler.numCalls("setYsr"));
 //         console.log("warp", handler.numCalls("warp"));
 //         console.log("drip", handler.numCalls("drip"));
 //         console.log("deposit", handler.numCalls("deposit"));

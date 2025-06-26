@@ -31,7 +31,7 @@ interface ConvLike {
 
 interface YUSDSLike {
     function wards(address usr) external view returns (uint256);
-    function syr() external view returns (uint256);
+    function ysr() external view returns (uint256);
 }
 
 interface SPBEAMLike {
@@ -65,14 +65,14 @@ contract YUsdsRateSetterTest is DssTest {
 
     address bud = address(0xb0d);
 
-    bytes32 constant SYR = "SYR";
+    bytes32 constant YSR = "YSR";
     bytes32 constant ILK = "LSEV2-SKY-A";
 
     event Kiss(address indexed usr);
     event Diss(address indexed usr);
     event File(bytes32 indexed id, bytes32 indexed what, uint256 data);
     event Set(bytes32 indexed id, uint256 bps);
-    event Set(uint256 syrBps, uint256 dutyBps, uint256 line, uint256 cap);
+    event Set(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap);
 
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"), 22725635); // TODO: remove the specific block
@@ -86,15 +86,15 @@ contract YUsdsRateSetterTest is DssTest {
 
         YUsdsConfig memory conf = YUsdsConfig({
             clip        : address(yusds.clip()),
-            syr         : 1000000001547125957863212448,
+            ysr         : 1000000001547125957863212448,
             cap         : type(uint256).max,
             line        : type(uint256).max,
             tau         : 1 hours,
             maxLine     : 1e9 * RAD,
             maxCap      : 1e9 * WAD,
-            minSyrBps   : 1,
-            maxSyrBps   : 3000,
-            stepSyrBps  : 100,
+            minYsrBps   : 1,
+            maxYsrBps   : 3000,
+            stepYsrBps  : 100,
             minDutyBps  : 1,
             maxDutyBps  : 3000,
             stepDutyBps : 100,
@@ -105,8 +105,8 @@ contract YUsdsRateSetterTest is DssTest {
         vm.stopPrank();
     }
 
-    function _syrBps() internal view returns (uint256 syrBps) {
-        syrBps = conv.rtob(yusds.syr());
+    function _ysrBps() internal view returns (uint256 ysrBps) {
+        ysrBps = conv.rtob(yusds.ysr());
     }
 
     function _duty() internal view returns (uint256 duty){
@@ -117,8 +117,8 @@ contract YUsdsRateSetterTest is DssTest {
         dutyBps = conv.rtob(_duty());
     }
 
-    function _currentBps() internal view returns (uint256 syrBps, uint256 dutyBps) {
-        syrBps  = _syrBps();
+    function _currentBps() internal view returns (uint256 ysrBps, uint256 dutyBps) {
+        ysrBps  = _ysrBps();
         dutyBps = _dutyBps();
     }
 
@@ -139,10 +139,10 @@ contract YUsdsRateSetterTest is DssTest {
         assertEq(rateSetter.tau(), 1 hours);
         assertEq(rateSetter.maxLine(), 1e9 * RAD);
         assertEq(rateSetter.maxCap(), 1e9 * WAD);
-        (uint16 minSyr, uint16 maxSyr, uint256 syrStep) = rateSetter.syrCfg();
-        assertEq(minSyr, 1);
-        assertEq(maxSyr, 3000);
-        assertEq(syrStep, 100);
+        (uint16 minYsr, uint16 maxYsr, uint256 ysrStep) = rateSetter.ysrCfg();
+        assertEq(minYsr, 1);
+        assertEq(maxYsr, 3000);
+        assertEq(ysrStep, 100);
         (uint16 minDuty, uint16 maxDuty, uint256 dutyStep) = rateSetter.dutyCfg();
         assertEq(minDuty, 1);
         assertEq(maxDuty, 3000);
@@ -228,25 +228,25 @@ contract YUsdsRateSetterTest is DssTest {
         rateSetter.file("bad", 1);
     }
 
-    function testFileSyr() public {
-        (uint16 min, uint16 max, uint16 step) = rateSetter.syrCfg();
+    function testFileYsr() public {
+        (uint16 min, uint16 max, uint16 step) = rateSetter.ysrCfg();
         assertEq(min, 1);
         assertEq(max, 3000);
         assertEq(step, 100);
 
         vm.startPrank(pauseProxy);
         vm.expectEmit(true, true, true, true);
-        emit File(SYR, "min", 100);
-        rateSetter.file(SYR, "min", 100);
+        emit File(YSR, "min", 100);
+        rateSetter.file(YSR, "min", 100);
         vm.expectEmit(true, true, true, true);
-        emit File(SYR, "max", 2000);
-        rateSetter.file(SYR, "max", 2000);
+        emit File(YSR, "max", 2000);
+        rateSetter.file(YSR, "max", 2000);
         vm.expectEmit(true, true, true, true);
-        emit File(SYR, "step", 420);
-        rateSetter.file(SYR, "step", 420);
+        emit File(YSR, "step", 420);
+        rateSetter.file(YSR, "step", 420);
         vm.stopPrank();
 
-        (min, max, step) = rateSetter.syrCfg();
+        (min, max, step) = rateSetter.ysrCfg();
         assertEq(min, 100);
         assertEq(max, 2000);
         assertEq(step, 420);
@@ -302,13 +302,13 @@ contract YUsdsRateSetterTest is DssTest {
     }
 
     function testSet() public {
-        (uint256 syrTarget, uint256 dutyTarget) = (_syrBps() + 50, _dutyBps() + 50);
+        (uint256 ysrTarget, uint256 dutyTarget) = (_ysrBps() + 50, _dutyBps() + 50);
 
         vm.expectEmit(true, true, true, true);
-        emit Set(syrTarget, dutyTarget, 50_000_000 * RAD, 60_000_000 * WAD);
-        vm.prank(bud); rateSetter.set(syrTarget, dutyTarget, 50_000_000 * RAD, 60_000_000 * WAD);
+        emit Set(ysrTarget, dutyTarget, 50_000_000 * RAD, 60_000_000 * WAD);
+        vm.prank(bud); rateSetter.set(ysrTarget, dutyTarget, 50_000_000 * RAD, 60_000_000 * WAD);
 
-        assertEq(yusds.syr(), conv.btor(syrTarget));
+        assertEq(yusds.ysr(), conv.btor(ysrTarget));
         assertEq(_duty(), conv.btor(dutyTarget));
         assertEq(yusds.line(), 50_000_000 * RAD);
         assertEq(yusds.cap(), 60_000_000 * WAD);
@@ -319,7 +319,7 @@ contract YUsdsRateSetterTest is DssTest {
     function testSetRatesAboveMax() public {
         dss.jug.drip(ILK);
         vm.startPrank(pauseProxy);
-        yusds.file("syr", conv.btor(3050)); // outside range
+        yusds.file("ysr", conv.btor(3050)); // outside range
         dss.jug.file(ILK, "duty", conv.btor(3050)); // outside range
         vm.stopPrank();
 
@@ -327,14 +327,14 @@ contract YUsdsRateSetterTest is DssTest {
         rateSetter.set(2999, 2999, 0, 0);
         vm.stopPrank();
 
-        assertEq(yusds.syr(), conv.btor(2999));
+        assertEq(yusds.ysr(), conv.btor(2999));
         assertEq(_duty(), conv.btor(2999));
     }
 
     function testSetRatesBelowMin() public {
         dss.jug.drip(ILK);
         vm.startPrank(pauseProxy);
-        yusds.file("syr", conv.btor(0)); // outside range
+        yusds.file("ysr", conv.btor(0)); // outside range
         dss.jug.file(ILK, "duty", conv.btor(0)); // outside range
         vm.stopPrank();
 
@@ -342,26 +342,26 @@ contract YUsdsRateSetterTest is DssTest {
         rateSetter.set(50, 50, 0, 0);
         vm.stopPrank();
 
-        assertEq(yusds.syr(), conv.btor(50));
+        assertEq(yusds.ysr(), conv.btor(50));
         assertEq(_duty(), conv.btor(50));
     }
 
-    function testRevertSetSyrNotConfiguredRate() public {
-        vm.prank(pauseProxy); rateSetter.file(SYR, "step", 0);
-        (uint256 syrBps, uint256 dutyBps) = _currentBps();
+    function testRevertSetYsrNotConfiguredRate() public {
+        vm.prank(pauseProxy); rateSetter.file(YSR, "step", 0);
+        (uint256 ysrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/rate-not-configured");
-        vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
+        vm.prank(bud); rateSetter.set(ysrBps, dutyBps, 0, 0);
     }
 
     function testRevertSetDutyNotConfiguredRate() public {
         vm.prank(pauseProxy); rateSetter.file(ILK, "step", 0);
-        (uint256 syrBps, uint256 dutyBps) = _currentBps();
+        (uint256 ysrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/rate-not-configured");
-        vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
+        vm.prank(bud); rateSetter.set(ysrBps, dutyBps, 0, 0);
     }
 
-    function testRevertSetSyrBelowMin() public {
-        vm.prank(pauseProxy); rateSetter.file(SYR, "min", 100);
+    function testRevertSetYsrBelowMin() public {
+        vm.prank(pauseProxy); rateSetter.file(YSR, "min", 100);
         uint256 dutyBps = _dutyBps();
         vm.expectRevert("YUsdsRateSetter/below-min");
         vm.prank(bud); rateSetter.set(50, dutyBps, 0, 0);
@@ -369,13 +369,13 @@ contract YUsdsRateSetterTest is DssTest {
 
     function testRevertSetDutyBelowMin() public {
         vm.prank(pauseProxy); rateSetter.file(ILK, "min", 100);
-        uint256 syrBps = _syrBps();
+        uint256 ysrBps = _ysrBps();
         vm.expectRevert("YUsdsRateSetter/below-min");
-        vm.prank(bud); rateSetter.set(syrBps, 50, 0, 0);
+        vm.prank(bud); rateSetter.set(ysrBps, 50, 0, 0);
     }
 
-    function testRevertSetSyrAboveMax() public {
-        vm.prank(pauseProxy); rateSetter.file(SYR, "max", 100);
+    function testRevertSetYsrAboveMax() public {
+        vm.prank(pauseProxy); rateSetter.file(YSR, "max", 100);
         uint256 dutyBps = _dutyBps();
         vm.expectRevert("YUsdsRateSetter/above-max");
         vm.prank(bud); rateSetter.set(150, dutyBps, 0, 0);
@@ -383,48 +383,48 @@ contract YUsdsRateSetterTest is DssTest {
 
     function testRevertSetDutyAboveMax() public {
         vm.prank(pauseProxy); rateSetter.file(ILK, "max", 100);
-        uint256 syrBps = _syrBps();
+        uint256 ysrBps = _ysrBps();
         vm.expectRevert("YUsdsRateSetter/above-max");
-        vm.prank(bud); rateSetter.set(syrBps, 150, 0, 0);
+        vm.prank(bud); rateSetter.set(ysrBps, 150, 0, 0);
     }
 
-    function testRevertSetSyrDeltaAboveStep() public {
-        vm.prank(pauseProxy); rateSetter.file(SYR, "step", 100);
-        (uint256 syrBps, uint256 dutyBps) = _currentBps();
+    function testRevertSetYsrDeltaAboveStep() public {
+        vm.prank(pauseProxy); rateSetter.file(YSR, "step", 100);
+        (uint256 ysrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/delta-above-step");
-        vm.prank(bud); rateSetter.set(syrBps + 101, dutyBps, 0, 0);
+        vm.prank(bud); rateSetter.set(ysrBps + 101, dutyBps, 0, 0);
     }
 
     function testRevertSetDutyDeltaAboveStep() public {
         vm.prank(pauseProxy); rateSetter.file(ILK, "step", 100);
-        (uint256 syrBps, uint256 dutyBps) = _currentBps();
+        (uint256 ysrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/delta-above-step");
-        vm.prank(bud); rateSetter.set(syrBps, dutyBps + 101, 0, 0);
+        vm.prank(bud); rateSetter.set(ysrBps, dutyBps + 101, 0, 0);
     }
 
     function testRevertLineTooHigh() public {
         vm.prank(pauseProxy); rateSetter.file("maxLine", 100 * RAD);
-        (uint256 syrBps, uint256 dutyBps) = _currentBps();
+        (uint256 ysrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/line-too-high");
-        vm.prank(bud); rateSetter.set(syrBps, dutyBps, 100 * RAD + 1, 0);
+        vm.prank(bud); rateSetter.set(ysrBps, dutyBps, 100 * RAD + 1, 0);
     }
 
     function testRevertCapTooHigh() public {
         vm.prank(pauseProxy); rateSetter.file("maxCap", 100 * WAD);
-        (uint256 syrBps, uint256 dutyBps) = _currentBps();
+        (uint256 ysrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/cap-too-high");
-        vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 100 * WAD + 1);
+        vm.prank(bud); rateSetter.set(ysrBps, dutyBps, 0, 100 * WAD + 1);
     }
 
     function testRevertSetBeforeCooldown() public {
         vm.prank(pauseProxy); rateSetter.file("tau", 100);
-        (uint256 syrBps, uint256 dutyBps) = _currentBps();
-        vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
+        (uint256 ysrBps, uint256 dutyBps) = _currentBps();
+        vm.prank(bud); rateSetter.set(ysrBps, dutyBps, 0, 0);
 
         vm.warp(block.timestamp + 99);
 
         vm.expectRevert("YUsdsRateSetter/too-early");
-        vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
+        vm.prank(bud); rateSetter.set(ysrBps, dutyBps, 0, 0);
     }
 
     function testRevertSetMalfunctioningConv() public {
@@ -434,8 +434,8 @@ contract YUsdsRateSetterTest is DssTest {
         // Mutate the conv code that is used in rateSetter
         vm.etch(address(conv), address(new MockBrokenConv(address(0x123))).code);
 
-        (uint256 syrBps, uint256 dutyBps) = _currentBps();
+        (uint256 ysrBps, uint256 dutyBps) = _currentBps();
         vm.expectRevert("YUsdsRateSetter/invalid-rate-conv");
-        vm.prank(bud); rateSetter.set(syrBps, dutyBps, 0, 0);
+        vm.prank(bud); rateSetter.set(ysrBps, dutyBps, 0, 0);
     }
 }

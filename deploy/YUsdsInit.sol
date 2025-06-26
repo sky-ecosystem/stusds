@@ -58,7 +58,7 @@ interface YUsdsMomLike {
 
 struct YUsdsConfig {
     address clip;
-    uint256 syr;
+    uint256 ysr;
     uint256 cap;
     uint256 line;
 
@@ -66,9 +66,9 @@ struct YUsdsConfig {
     uint256 tau;
     uint256 maxLine;
     uint256 maxCap;
-    uint256 minSyrBps;
-    uint256 maxSyrBps;
-    uint256 stepSyrBps;
+    uint256 minYsrBps;
+    uint256 maxYsrBps;
+    uint256 stepYsrBps;
     uint256 minDutyBps;
     uint256 maxDutyBps;
     uint256 stepDutyBps;
@@ -93,7 +93,7 @@ library YUsdsInit {
         require(YUsdsLike(instance.yUsds).clip()     == cfg.clip,                             "YUsdsInit/usdsJoin-does-not-match");
         require(YUsdsLike(instance.yUsds).vow()      == address(dss.vow),                     "YUsdsInit/vow-does-not-match");
 
-        require(cfg.syr >= RAY && cfg.syr <= RATES_ONE_HUNDRED_PCT, "YUsdsInit/syr-out-of-boundaries");
+        require(cfg.ysr >= RAY && cfg.ysr <= RATES_ONE_HUNDRED_PCT, "YUsdsInit/ysr-out-of-boundaries");
 
         require(RateSetterLike(instance.rateSetter).yusds() == instance.yUsds, "YUsdsInit/yusds-does-not-match");
         require(RateSetterLike(instance.rateSetter).conv()  == SPBEAMLike(dss.chainlog.getAddress("MCD_SPBEAM")).conv());
@@ -105,7 +105,7 @@ library YUsdsInit {
         AutoLineLike(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).remIlk(YUsdsLike(instance.yUsds).ilk());
 
         YUsdsLike(instance.yUsds).drip();
-        YUsdsLike(instance.yUsds).file("syr",  cfg.syr);
+        YUsdsLike(instance.yUsds).file("ysr",  cfg.ysr);
         YUsdsLike(instance.yUsds).file("cap",  cfg.cap);
         YUsdsLike(instance.yUsds).file("line", cfg.line);
 
@@ -118,9 +118,9 @@ library YUsdsInit {
         RateSetterLike(instance.rateSetter).file("maxCap",  cfg.maxCap);
 
         // Note: we configure max first on purpose to initially pass the max > min validation
-        RateSetterLike(instance.rateSetter).file("SYR", "max",  cfg.maxSyrBps);
-        RateSetterLike(instance.rateSetter).file("SYR", "min",  cfg.minSyrBps);
-        RateSetterLike(instance.rateSetter).file("SYR", "step", cfg.stepSyrBps);
+        RateSetterLike(instance.rateSetter).file("YSR", "max",  cfg.maxYsrBps);
+        RateSetterLike(instance.rateSetter).file("YSR", "min",  cfg.minYsrBps);
+        RateSetterLike(instance.rateSetter).file("YSR", "step", cfg.stepYsrBps);
 
         bytes32 ilk = RateSetterLike(instance.rateSetter).ilk();
         RateSetterLike(instance.rateSetter).file(ilk, "max",  cfg.maxDutyBps);

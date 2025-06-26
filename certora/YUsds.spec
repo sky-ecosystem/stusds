@@ -16,7 +16,7 @@ methods {
     function nonces(address) external returns (uint256) envfree;
     function chi() external returns (uint192) envfree;
     function rho() external returns (uint64) envfree;
-    function syr() external returns (uint256) envfree;
+    function ysr() external returns (uint256) envfree;
     function cap() external returns (uint256) envfree;
     function line() external returns (uint256) envfree;
     // immutables
@@ -64,7 +64,7 @@ definition _divup(mathint x, mathint y) returns mathint = x != 0 ? ((x - 1) / y)
 definition _min(mathint x, mathint y) returns mathint = x < y ? x : y;
 definition _subcap(mathint x, mathint y) returns mathint = x > y ? x - y : 0;
 
-definition defNewChi(env e) returns mathint = e.block.timestamp > rho() ? aux.rpow(syr(), require_uint256(e.block.timestamp - rho())) * chi() / RAY() : chi();
+definition defNewChi(env e) returns mathint = e.block.timestamp > rho() ? aux.rpow(ysr(), require_uint256(e.block.timestamp - rho())) * chi() / RAY() : chi();
 definition defConvertToShares(env e, mathint assets) returns mathint = defNewChi(e) > 0 ? assets * RAY() / defNewChi(e) : 0; // The else path should provoke a revert
 definition defConvertToAssets(env e, mathint shares) returns mathint = shares * defNewChi(e) / RAY();
 
@@ -103,7 +103,7 @@ rule invariant_maxDeposit() {
     bytes32 ilk = ilk();
     address vow = vow();
 
-    uint256 syr = syr();
+    uint256 ysr = ysr();
     mathint rho = rho();
     mathint chi = chi();
 
@@ -113,7 +113,7 @@ rule invariant_maxDeposit() {
     // Blockchain behaviour
     require e.block.timestamp >= rho();
 
-    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint rpowRes = aux.rpow(ysr, assert_uint256(e.block.timestamp - rho));
     mathint newChiCalc = defNewChi(e);
     mathint sharesCalc = defConvertToShares(e, assets);
 
@@ -180,7 +180,7 @@ rule invariant_maxMint() {
     bytes32 ilk = ilk();
     address vow = vow();
 
-    uint256 syr = syr();
+    uint256 ysr = ysr();
     mathint rho = rho();
     mathint chi = chi();
 
@@ -190,7 +190,7 @@ rule invariant_maxMint() {
     // Blockchain behaviour
     require e.block.timestamp >= rho();
 
-    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint rpowRes = aux.rpow(ysr, assert_uint256(e.block.timestamp - rho));
     mathint newChiCalc = defNewChi(e);
     mathint assetsCalc = _divup(shares * newChiCalc, RAY());
 
@@ -259,7 +259,7 @@ rule invariant_maxWithdraw(address owner) {
 
     mathint totalSupply = totalSupply();
 
-    uint256 syr = syr();
+    uint256 ysr = ysr();
     mathint rho = rho();
     mathint chi = chi();
 
@@ -270,7 +270,7 @@ rule invariant_maxWithdraw(address owner) {
     require e.block.timestamp >= rho;
     require e.block.timestamp >= jugRho;
 
-    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint rpowRes = aux.rpow(ysr, assert_uint256(e.block.timestamp - rho));
     mathint newChiCalc = defNewChi(e);
     mathint sharesCalc = newChiCalc > 0 ? _divup(assets * RAY(), newChiCalc) : 0;
 
@@ -349,7 +349,7 @@ rule invariant_maxRedeem(address owner) {
 
     mathint totalSupply = totalSupply();
 
-    uint256 syr = syr();
+    uint256 ysr = ysr();
     mathint rho = rho();
     mathint chi = chi();
 
@@ -360,7 +360,7 @@ rule invariant_maxRedeem(address owner) {
     require e.block.timestamp >= rho;
     require e.block.timestamp >= jugRho;
 
-    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint rpowRes = aux.rpow(ysr, assert_uint256(e.block.timestamp - rho));
     mathint newChiCalc = defNewChi(e);
     mathint assetsCalc = defConvertToAssets(e, shares);
 
@@ -466,7 +466,7 @@ rule storageAffected(method f) filtered { f -> f.selector != sig:upgradeToAndCal
     mathint noncesBefore = nonces(anyAddr);
     mathint chiBefore = chi();
     mathint rhoBefore = rho();
-    mathint syrBefore = syr();
+    mathint ysrBefore = ysr();
     mathint capBefore = cap();
     mathint lineBefore = line();
 
@@ -480,7 +480,7 @@ rule storageAffected(method f) filtered { f -> f.selector != sig:upgradeToAndCal
     mathint noncesAfter = nonces(anyAddr);
     mathint chiAfter = chi();
     mathint rhoAfter = rho();
-    mathint syrAfter = syr();
+    mathint ysrAfter = ysr();
     mathint capAfter = cap();
     mathint lineAfter = line();
 
@@ -527,7 +527,7 @@ rule storageAffected(method f) filtered { f -> f.selector != sig:upgradeToAndCal
                                                     f.selector == sig:mint(uint256,address,uint16).selector ||
                                                     f.selector == sig:withdraw(uint256,address,address).selector ||
                                                     f.selector == sig:redeem(uint256,address,address).selector, "Assert 7";
-    assert syrAfter != syrBefore                 => f.selector == sig:initialize().selector ||
+    assert ysrAfter != ysrBefore                 => f.selector == sig:initialize().selector ||
                                                     f.selector == sig:file(bytes32,uint256).selector, "Assert 8";
     assert capAfter != capBefore                 => f.selector == sig:file(bytes32,uint256).selector, "Assert 9";
     assert lineAfter != lineBefore               => f.selector == sig:file(bytes32,uint256).selector, "Assert 10";
@@ -601,18 +601,18 @@ rule deny_revert(address usr) {
 rule file(bytes32 what, uint256 data) {
     env e;
 
-    uint256 syrBefore = syr();
+    uint256 ysrBefore = ysr();
     uint256 capBefore = cap();
     uint256 lineBefore = line();
 
     file(e, what, data);
 
-    uint256 syrAfter = syr();
+    uint256 ysrAfter = ysr();
     uint256 capAfter = cap();
     uint256 lineAfter = line();
 
-    assert what == to_bytes32(0x7379720000000000000000000000000000000000000000000000000000000000) => syrAfter == data, "Assert 1";
-    assert what != to_bytes32(0x7379720000000000000000000000000000000000000000000000000000000000) => syrAfter == syrBefore, "Assert 2";
+    assert what == to_bytes32(0x7973720000000000000000000000000000000000000000000000000000000000) => ysrAfter == data, "Assert 1";
+    assert what != to_bytes32(0x7973720000000000000000000000000000000000000000000000000000000000) => ysrAfter == ysrBefore, "Assert 2";
     assert what == to_bytes32(0x6361700000000000000000000000000000000000000000000000000000000000) => capAfter == data, "Assert 3";
     assert what != to_bytes32(0x6361700000000000000000000000000000000000000000000000000000000000) => capAfter == capBefore, "Assert 4";
     assert what == to_bytes32(0x6c696e6500000000000000000000000000000000000000000000000000000000) => lineAfter == data, "Assert 5";
@@ -630,12 +630,12 @@ rule file_revert(bytes32 what, uint256 data) {
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
-    bool revert3 = what != to_bytes32(0x7379720000000000000000000000000000000000000000000000000000000000) &&
+    bool revert3 = what != to_bytes32(0x7973720000000000000000000000000000000000000000000000000000000000) &&
                    what != to_bytes32(0x6361700000000000000000000000000000000000000000000000000000000000) &&
                    what != to_bytes32(0x6c696e6500000000000000000000000000000000000000000000000000000000);
-    bool revert4 = what == to_bytes32(0x7379720000000000000000000000000000000000000000000000000000000000) &&
+    bool revert4 = what == to_bytes32(0x7973720000000000000000000000000000000000000000000000000000000000) &&
                    data < RAY();
-    bool revert5 = what == to_bytes32(0x7379720000000000000000000000000000000000000000000000000000000000) &&
+    bool revert5 = what == to_bytes32(0x7973720000000000000000000000000000000000000000000000000000000000) &&
                    rho != e.block.timestamp;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
@@ -699,7 +699,7 @@ rule cut_revert(uint256 rad) {
 
     address vow = vow();
 
-    uint256 syr = syr();
+    uint256 ysr = ysr();
     mathint rho = rho();
     mathint chi = chi();
 
@@ -715,7 +715,7 @@ rule cut_revert(uint256 rad) {
     require e.block.timestamp >= rho();
     require e.block.timestamp < 2^64;
 
-    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint rpowRes = aux.rpow(ysr, assert_uint256(e.block.timestamp - rho));
     mathint chiDripCalc = defNewChi(e);
     mathint newChiCalc = totalAssets > 0 ? chiDripCalc * (totalAssets - assets) / totalAssets : 0;
 
@@ -808,7 +808,7 @@ rule drip_revert() {
 
     address vow = vow();
 
-    uint256 syr = syr();
+    uint256 ysr = ysr();
     mathint rho = rho();
     mathint chi = chi();
 
@@ -822,7 +822,7 @@ rule drip_revert() {
     require e.block.timestamp >= rho();
     require e.block.timestamp < 2^64;
 
-    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint rpowRes = aux.rpow(ysr, assert_uint256(e.block.timestamp - rho));
     mathint newChiCalc = defNewChi(e);
 
     mathint dripDiff = totalSupply * newChiCalc / RAY() - totalSupply * chi / RAY();
@@ -1105,7 +1105,7 @@ rule deposit_revert(uint256 assets, address receiver, uint16 referral) {
 
     address vow = vow();
 
-    uint256 syr = syr();
+    uint256 ysr = ysr();
     mathint rho = rho();
     mathint chi = chi();
     mathint cap = cap();
@@ -1113,7 +1113,7 @@ rule deposit_revert(uint256 assets, address receiver, uint16 referral) {
     // Blockchain behaviour
     require e.block.timestamp >= rho();
 
-    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint rpowRes = aux.rpow(ysr, assert_uint256(e.block.timestamp - rho));
     mathint newChiCalc = defNewChi(e);
     mathint sharesCalc = defConvertToShares(e, assets);
 
@@ -1249,7 +1249,7 @@ rule mint_revert(uint256 shares, address receiver, uint16 referral) {
 
     address vow = vow();
 
-    uint256 syr = syr();
+    uint256 ysr = ysr();
     mathint rho = rho();
     mathint chi = chi();
     mathint cap = cap();
@@ -1257,7 +1257,7 @@ rule mint_revert(uint256 shares, address receiver, uint16 referral) {
     // Blockchain behaviour
     require e.block.timestamp >= rho();
 
-    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint rpowRes = aux.rpow(ysr, assert_uint256(e.block.timestamp - rho));
     mathint newChiCalc = defNewChi(e);
     mathint assetsCalc = _divup(shares * newChiCalc, RAY());
 
@@ -1414,7 +1414,7 @@ rule withdraw_revert(uint256 assets, address receiver, address owner) {
     mathint balanceOfOwner = balanceOf(owner);
     mathint allowanceOwnerSender = allowance(owner, e.msg.sender);
 
-    uint256 syr = syr();
+    uint256 ysr = ysr();
     mathint rho = rho();
     mathint chi = chi();
 
@@ -1425,7 +1425,7 @@ rule withdraw_revert(uint256 assets, address receiver, address owner) {
     require e.block.timestamp >= rho;
     require e.block.timestamp >= jugRho;
 
-    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint rpowRes = aux.rpow(ysr, assert_uint256(e.block.timestamp - rho));
     mathint newChiCalc = defNewChi(e);
     mathint sharesCalc = newChiCalc > 0 ? _divup(assets * RAY(), newChiCalc) : 0;
 
@@ -1590,7 +1590,7 @@ rule redeem_revert(uint256 shares, address receiver, address owner) {
     mathint balanceOfOwner = balanceOf(owner);
     mathint allowanceOwnerSender = allowance(owner, e.msg.sender);
 
-    uint256 syr = syr();
+    uint256 ysr = ysr();
     mathint rho = rho();
     mathint chi = chi();
 
@@ -1601,7 +1601,7 @@ rule redeem_revert(uint256 shares, address receiver, address owner) {
     require e.block.timestamp >= rho();
     require e.block.timestamp >= jugRho;
 
-    mathint rpowRes = aux.rpow(syr, assert_uint256(e.block.timestamp - rho));
+    mathint rpowRes = aux.rpow(ysr, assert_uint256(e.block.timestamp - rho));
     mathint newChiCalc = defNewChi(e);
     mathint assetsCalc = defConvertToAssets(e, shares);
 
