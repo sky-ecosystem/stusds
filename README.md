@@ -1,7 +1,7 @@
 # Yield USDS
 
 An implementation of a yield-bearing USDS token, which aims at ensuring that all SKY-backed borrowing is funded by segregated risk capital.
-Depositors take on several risks, such as stake engine bad debt accrual, or Sky governance risk (see `Trust Assumptions and Suppliers Considerations` below).
+Depositors, who in practice provide insurance funds to the system, take on several risks, such as stake engine bad debt accrual, or Sky governance risk (see `Trust Assumptions and Suppliers Considerations` below).
 
 ## Overview
 
@@ -36,8 +36,8 @@ The `deposit` and `mint` functions accept an optional `uint16 referral` paramete
 ## Notes, Disclaimers and Known Issues:
 
 ### Trust Assumptions and Suppliers Considerations:
-* It is assumed the `cut` can be called from the clipper when bad debt is accrued, or by governance.
-* yUSDS suppliers trust Sky governance. For example, if it desires, governance could slash everything (or upgrade the contract), and possibly during the gov delay period all funds are borrowed, so withdrawing is not possible.
+* yUSDS suppliers should know they trust Sky governance completely. Governance could upgrade the contract, and possibly during the gov delay period all funds are borrowed, so withdrawing is not possible.
+* The `cut` function (which slashes USDS out of the contract) was designed for being called by the stake engine Clipper when bad debt is accrued. However, as Sky governance is authed on the yUSDS contract, it has the ability to also call it directly. This does not change any trust assumption due to the previous comment.
 * yUSDS suppliers should also be aware that operators of the Rate Setter (appointed by governance) can set rates in a way that all funds are borrowed, so it is up to governance to make sure that over time they aim to allow withdrawals.
 * The yUSDS system does not use the debt ceiling Instant Access Module (aka autoline), but instead allows the deposit and withdraw code to set the `line` to any value under the max borrow line. This means that in specific situations the borrowed amount can move very fast. In practice, it implies that yUSDS depositors also take the risk for oracles reporting a very high price and allowing minting of "cheap" usds, which the autoline usually mitigates against with it's pacing.
 * The desirable status in the system is that the non-withdrawable amount backs the stake engine debt, but there is nothing preventing yUSDS redeems of the other funds. There is a likely possibility that these other funds will be withdrawn when people speculate that bad debt will be created, or see that a governance action to slash is coming. If it's clear that slashing is going to happen then we can even expect all withdrawable funds to be pulled. This can create large swings in the deposit amount, and also prevent the bad debt from being better socialized. This needs to be taken into account by suppliers.
