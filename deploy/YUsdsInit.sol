@@ -63,16 +63,16 @@ struct YUsdsConfig {
     uint256 line;
 
     // RateSetter configuration
-    uint256 tau;
-    uint256 maxLine;
-    uint256 maxCap;
-    uint256 minYsrBps;
-    uint256 maxYsrBps;
-    uint256 stepYsrBps;
-    uint256 minDutyBps;
-    uint256 maxDutyBps;
-    uint256 stepDutyBps;
-    address bud;
+    uint256   tau;
+    uint256   maxLine;
+    uint256   maxCap;
+    uint256   minYsrBps;
+    uint256   maxYsrBps;
+    uint256   stepYsrBps;
+    uint256   minDutyBps;
+    uint256   maxDutyBps;
+    uint256   stepDutyBps;
+    address[] buds;
 }
 
 library YUsdsInit {
@@ -127,7 +127,9 @@ library YUsdsInit {
         RateSetterLike(instance.rateSetter).file(ilk, "min",  cfg.minDutyBps);
         RateSetterLike(instance.rateSetter).file(ilk, "step", cfg.stepDutyBps);
 
-        RateSetterLike(instance.rateSetter).kiss(cfg.bud);
+        for (uint256 i; i < cfg.buds.length; i ++) {
+            RateSetterLike(instance.rateSetter).kiss(cfg.buds[i]);
+        }
 
         // Mom Configuration
         YUsdsLike(instance.yUsds).rely(instance.mom);

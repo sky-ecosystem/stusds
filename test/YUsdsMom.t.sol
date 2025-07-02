@@ -70,7 +70,7 @@ contract YUsdsMomTest is DssTest {
             minDutyBps  : 1,
             maxDutyBps  : 3000,
             stepDutyBps : 100,
-            bud         : address(0xb0d)
+            buds        : new address[](0)
         });
         vm.startPrank(pauseProxy);
         YUsdsInit.init(dss, inst, conf);

@@ -64,6 +64,7 @@ contract YUsdsRateSetterTest is DssTest {
     address         pauseProxy;
 
     address bud = address(0xb0d);
+    address bud2 = address(0xb0d2);
 
     bytes32 constant YSR = "YSR";
     bytes32 constant ILK = "LSEV2-SKY-A";
@@ -84,6 +85,10 @@ contract YUsdsRateSetterTest is DssTest {
         rateSetter = YUsdsRateSetter(inst.rateSetter);
         conv = ConvLike(address(rateSetter.conv()));
 
+        address[] memory buds = new address[](2);
+        buds[0] = bud;
+        buds[1] = bud2;
+
         YUsdsConfig memory conf = YUsdsConfig({
             clip        : address(yusds.clip()),
             ysr         : 1000000001547125957863212448,
@@ -98,7 +103,7 @@ contract YUsdsRateSetterTest is DssTest {
             minDutyBps  : 1,
             maxDutyBps  : 3000,
             stepDutyBps : 100,
-            bud         : bud
+            buds        : buds
         });
         vm.startPrank(pauseProxy);
         YUsdsInit.init(dss, inst, conf);
@@ -148,6 +153,7 @@ contract YUsdsRateSetterTest is DssTest {
         assertEq(maxDuty, 3000);
         assertEq(dutyStep, 100);
         assertEq(rateSetter.buds(bud), 1);
+        assertEq(rateSetter.buds(bud2), 1);
         assertEq(dss.chainlog.getAddress("YUSDS_RATE_SETTER"), address(rateSetter));
     }
 

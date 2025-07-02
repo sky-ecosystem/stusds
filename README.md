@@ -54,7 +54,7 @@ The `deposit` and `mint` functions accept an optional `uint16 referral` paramete
 * There is no pacing mechanism for the Rate Setter's `cap` and `line` setting, as it is assumed that the combination of the max values and the rate pacing ("steps") are enough to protect against big losses.
 * The Rate Setter operators off-chain algorithm is assumed to take into account manipulation attempts. For example, it can use an average past utilization, and possibly introduce some variance in its samples. If needed, it is assumed to be updated when manipulations are spotted.
 * It is assumed that a max rate of 50% is enough (as supported in the [Conv](https://github.com/sky-ecosystem/rates-conv) module). If needed, the Rate Setter could be replaced to support higher rates.
-* The Rate Setter is assumed to have one `bud` for all practical use cases. If another bud is added, it is assumed to be done carefully after examining front-running, collidings and collusions.
+* The Rate Setter needs to have one or more `buds` for all practical use cases. If more than one is added, it is assumed they are well coordinated.
 
 ## Shutdown
 
