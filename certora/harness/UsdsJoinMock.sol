@@ -12,11 +12,6 @@ contract UsdsJoinMock {
     VatLike public vat;
     UsdsMock public usds;
 
-    constructor(address vat_, address usds_) {
-        vat  = VatLike(vat_);
-        usds = UsdsMock(usds_);
-    }
-
     function join(address usr, uint256 wad) external {
         vat.move(address(this), usr, wad * 10**27);
         usds.burn(msg.sender, wad);
