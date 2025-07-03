@@ -911,7 +911,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         shares4 = bound(shares4, 1, 100 ether);
         warp = bound(warp, 0, 365 days);
 
-        deal(address(usds), address(this), 400 ether);
+        deal(address(usds), address(this), 10_000 ether);
 
         vm.warp(block.timestamp + warp);
 
