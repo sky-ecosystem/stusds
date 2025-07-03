@@ -43,7 +43,6 @@ interface RateSetterLike {
     function file(bytes32, uint256) external;
     function file(bytes32, bytes32, uint256) external;
     function kiss(address) external;
-    function ilk() external view returns (bytes32);
     function rely(address) external;
 }
 
@@ -90,19 +89,21 @@ library YUsdsInit {
 
         require(YUsdsLike(instance.yUsds).usdsJoin() == dss.chainlog.getAddress("USDS_JOIN"), "YUsdsInit/usdsJoin-does-not-match");
         require(YUsdsLike(instance.yUsds).jug()      == address(dss.jug),                     "YUsdsInit/jug-does-not-match");
-        require(YUsdsLike(instance.yUsds).clip()     == cfg.clip,                             "YUsdsInit/usdsJoin-does-not-match");
+        require(YUsdsLike(instance.yUsds).clip()     == cfg.clip,                             "YUsdsInit/clip-does-not-match");
         require(YUsdsLike(instance.yUsds).vow()      == address(dss.vow),                     "YUsdsInit/vow-does-not-match");
 
         require(cfg.ysr >= RAY && cfg.ysr <= RATES_ONE_HUNDRED_PCT, "YUsdsInit/ysr-out-of-boundaries");
 
         require(RateSetterLike(instance.rateSetter).yusds() == instance.yUsds, "YUsdsInit/yusds-does-not-match");
-        require(RateSetterLike(instance.rateSetter).conv()  == SPBEAMLike(dss.chainlog.getAddress("MCD_SPBEAM")).conv());
+        require(RateSetterLike(instance.rateSetter).conv()  == SPBEAMLike(dss.chainlog.getAddress("MCD_SPBEAM")).conv(), "YUsdsInit/conv-does-not-match");
 
-        require(YUsdsMomLike(instance.mom).yusds() == instance.yUsds, "YUsdsInit/yusds-mom-does-not-match");
+        require(YUsdsMomLike(instance.mom).yusds() == instance.yUsds, "YUsdsInit/yusds-does-not-match");
 
         dss.vat.rely(instance.yUsds);
 
-        AutoLineLike(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).remIlk(YUsdsLike(instance.yUsds).ilk());
+        bytes32 ilk = YUsdsLike(instance.yUsds).ilk();
+
+        AutoLineLike(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).remIlk(ilk);
 
         YUsdsLike(instance.yUsds).drip();
         YUsdsLike(instance.yUsds).file("ysr",  cfg.ysr);
@@ -122,7 +123,6 @@ library YUsdsInit {
         RateSetterLike(instance.rateSetter).file("YSR", "min",  cfg.minYsrBps);
         RateSetterLike(instance.rateSetter).file("YSR", "step", cfg.stepYsrBps);
 
-        bytes32 ilk = RateSetterLike(instance.rateSetter).ilk();
         RateSetterLike(instance.rateSetter).file(ilk, "max",  cfg.maxDutyBps);
         RateSetterLike(instance.rateSetter).file(ilk, "min",  cfg.minDutyBps);
         RateSetterLike(instance.rateSetter).file(ilk, "step", cfg.stepDutyBps);
