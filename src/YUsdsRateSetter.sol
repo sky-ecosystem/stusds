@@ -17,22 +17,22 @@
 pragma solidity ^0.8.21;
 
 interface JugLike {
-    function ilks(bytes32 ilk) external view returns (uint256 duty, uint256 rho);
-    function file(bytes32 ilk, bytes32 what, uint256 data) external;
-    function drip(bytes32 ilk) external;
+    function ilks(bytes32) external view returns (uint256, uint256);
+    function file(bytes32, bytes32, uint256) external;
+    function drip(bytes32) external;
 }
 
 interface YUSDSLike {
     function jug() external view returns (address);
     function ilk() external view returns (bytes32);
     function ysr() external view returns (uint256);
-    function file(bytes32 what, uint256 data) external;
+    function file(bytes32, uint256) external;
     function drip() external;
 }
 
 interface ConvLike {
-    function btor(uint256 bps) external pure returns (uint256 ray);
-    function rtob(uint256 ray) external pure returns (uint256 bps);
+    function btor(uint256) external pure returns (uint256);
+    function rtob(uint256) external pure returns (uint256);
 }
 
 contract YUsdsRateSetter {

@@ -17,15 +17,15 @@
 pragma solidity ^0.8.21;
 
 interface AuthorityLike {
-    function canCall(address src, address dst, bytes4 sig) external view returns (bool);
+    function canCall(address, address, bytes4) external view returns (bool);
 }
 
 interface YUsdsLike {
-    function file(bytes32 what, uint256 data) external;
+    function file(bytes32, uint256) external;
 }
 
 interface RateSetterLike {
-    function file(bytes32 what, uint256 data) external;
+    function file(bytes32, uint256) external;
 }
 
 contract YUsdsMom {
