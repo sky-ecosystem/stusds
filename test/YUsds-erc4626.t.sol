@@ -17,84 +17,91 @@
 
 pragma solidity ^0.8.21;
 
-// import "erc4626-tests/ERC4626.test.sol";
-// import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "erc4626-tests/ERC4626.test.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-// import { VatMock } from "test/mocks/VatMock.sol";
-// import { UsdsMock } from "test/mocks/UsdsMock.sol";
-// import { UsdsJoinMock } from "test/mocks/UsdsJoinMock.sol";
+import { VatMock } from "test/mocks/VatMock.sol";
+import { JugMock } from "test/mocks/JugMock.sol";
+import { UsdsMock } from "test/mocks/UsdsMock.sol";
+import { UsdsJoinMock } from "test/mocks/UsdsJoinMock.sol";
+import { ClipMock } from "test/mocks/ClipMock.sol";
 
-// import { YUsds } from "src/YUsds.sol";
+import { YUsds } from "src/YUsds.sol";
 
-// contract YUsdsERC4626Test is ERC4626Test {
+contract YUsdsERC4626Test is ERC4626Test {
 
-//     using stdStorage for StdStorage;
+    using stdStorage for StdStorage;
 
-//     VatMock vat;
-//     UsdsMock usds;
-//     UsdsJoinMock usdsJoin;
+    VatMock vat;
+    JugMock jug;
+    UsdsMock usds;
+    UsdsJoinMock usdsJoin;
+    ClipMock clip;
 
-//     YUsds yUsds;
+    YUsds yUsds;
 
-//     uint256 constant private RAY = 10**27;
+    uint256 constant private RAY = 10**27;
 
-//     function setUp() public override {
-//         vat = new VatMock();
-//         usds = new UsdsMock();
-//         usdsJoin = new UsdsJoinMock(address(vat), address(usds));
+    function setUp() public override {
+        vat = new VatMock();
+        jug = new JugMock();
+        usds = new UsdsMock();
+        usdsJoin = new UsdsJoinMock(address(vat), address(usds));
+        clip = new ClipMock("AAA");
 
-//         usds.rely(address(usdsJoin));
-//         vat.suck(address(123), address(usdsJoin), 100_000_000_000 * 10 ** 45);
+        usds.rely(address(usdsJoin));
+        vat.suck(address(123), address(usdsJoin), 100_000_000_000 * 10 ** 45);
 
-//         yUsds = YUsds(address(new ERC1967Proxy(address(new YUsds(address(usdsJoin), address(0))), abi.encodeCall(YUsds.initialize, ()))));
-//         vat.rely(address(yUsds));
+        yUsds = YUsds(address(new ERC1967Proxy(address(new YUsds(address(usdsJoin), address(jug), address(clip), address(0))), abi.encodeCall(YUsds.initialize, ()))));
+        vat.rely(address(yUsds));
 
-//         yUsds.file("ysr", 1000000001547125957863212448);
+        yUsds.file("ysr", 1000000001547125957863212448);
+        yUsds.file("cap", type(uint256).max);
 
-//         vat.hope(address(usdsJoin));
+        vat.hope(address(usdsJoin));
 
-//         vm.warp(100 days);
-//         yUsds.drip();
+        vm.warp(100 days);
+        yUsds.drip();
 
-//         assertGt(yUsds.chi(), RAY);
+        assertGt(yUsds.chi(), RAY);
 
-//         _underlying_ = address(usds);
-//         _vault_ = address(yUsds);
-//         _delta_ = 0;
-//         _vaultMayBeEmpty = true;
-//         _unlimitedAmount = false;
-//     }
+        _underlying_ = address(usds);
+        _vault_ = address(yUsds);
+        _delta_ = 0;
+        _vaultMayBeEmpty = true;
+        _unlimitedAmount = false;
+    }
 
-//     // setup initial vault state
-//     function setUpVault(Init memory init) public override {
-//         for (uint256 i = 0; i < N; i++) {
-//             init.share[i] %= 1_000_000_000 ether;
-//             init.asset[i] %= 1_000_000_000 ether;
-//             vm.assume(init.user[i] != address(0) && init.user[i] != address(yUsds));
-//         }
-//         super.setUpVault(init);
-//     }
+    // setup initial vault state
+    function setUpVault(Init memory init) public override {
+        for (uint256 i = 0; i < N; i++) {
+            init.share[i] %= 1_000_000_000 ether;
+            init.asset[i] %= 1_000_000_000 ether;
+            vm.assume(init.user[i] != address(0) && init.user[i] != address(yUsds));
+        }
+        super.setUpVault(init);
+    }
 
-//     // setup initial yield
-//     function setUpYield(Init memory init) public override {
-//         vm.assume(init.yield >= 0);
-//         init.yield %= 1_000_000_000 ether;
-//         uint256 gain = uint256(init.yield);
+    // setup initial yield
+    function setUpYield(Init memory init) public override {
+        vm.assume(init.yield >= 0);
+        init.yield %= 1_000_000_000 ether;
+        uint256 gain = uint256(init.yield);
 
-//         uint256 supply = yUsds.totalSupply();
-//         if (supply > 0) {
-//             uint256 nChi = gain * RAY / supply + yUsds.chi();
-//             uint256 chiRho = (block.timestamp << 192) + nChi;
-//             vm.store(
-//                 address(yUsds),
-//                 bytes32(uint256(5)),
-//                 bytes32(chiRho)
-//             );
-//             assertEq(uint256(yUsds.chi()), nChi);
-//             assertEq(uint256(yUsds.rho()), block.timestamp);
-//             vat.suck(address(yUsds.vow()), address(this), gain * RAY);
-//             usdsJoin.exit(address(yUsds), gain);
-//         }
-//     }
+        uint256 supply = yUsds.totalSupply();
+        if (supply > 0) {
+            uint256 nChi = gain * RAY / supply + yUsds.chi();
+            uint256 chiRho = (block.timestamp << 192) + nChi;
+            vm.store(
+                address(yUsds),
+                bytes32(uint256(5)),
+                bytes32(chiRho)
+            );
+            assertEq(uint256(yUsds.chi()), nChi);
+            assertEq(uint256(yUsds.rho()), block.timestamp);
+            vat.suck(address(yUsds.vow()), address(this), gain * RAY);
+            usdsJoin.exit(address(yUsds), gain);
+        }
+    }
 
-// }
+}
