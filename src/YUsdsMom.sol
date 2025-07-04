@@ -95,7 +95,7 @@ contract YUsdsMom {
         emit ZeroCap(rateSetter);
     }
 
-    // Consider calling with line-mom to stop borrowing immediately
+    // Consider also calling ysds.drip() or using the line-mom to stop borrowing immediately
     function zeroLine(address rateSetter) external auth {
         yusds.file("line", 0);
         RateSetterLike(rateSetter).file("maxLine", 0);
