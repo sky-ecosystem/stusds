@@ -204,7 +204,7 @@ contract YUsdsRateSetter {
         jug.file(ilk, "duty", ray);
 
         require(line <= maxLine, "YUsdsRateSetter/line-too-high");
-        yusds.file("line", line);
+        yusds.file("line", line); // If it is expected the new value has an immediate effect on vat[ilk].line, then call yusds.drip() right after
 
         require(cap <= maxCap, "YUsdsRateSetter/cap-too-high");
         yusds.file("cap", cap);

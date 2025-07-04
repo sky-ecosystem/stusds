@@ -242,7 +242,7 @@ contract YUsds is UUPSUpgradeable {
         } else if (what == "cap") {
             cap = data;
         } else if (what == "line") {
-            line = data;
+            line = data; // If it is expected the new value has an immediate effect on vat[ilk].line, then call drip() right after
         } else revert("YUsds/file-unrecognized-param");
         emit File(what, data);
     }
