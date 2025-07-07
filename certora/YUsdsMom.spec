@@ -13,11 +13,13 @@ methods {
     function yusds.wards(address) external returns (uint256) envfree;
     function yusds.line() external returns (uint256) envfree;
     function rateSetter.wards(address) external returns (uint256) envfree;
+    function rateSetter.buds(address) external returns (uint256) envfree;
     function rateSetter.bad() external returns (uint8) envfree;
     function rateSetter.maxCap() external returns (uint256) envfree;
     function rateSetter.maxLine() external returns (uint256) envfree;
     function yusds.cap() external returns (uint256) envfree;
     //
+    function _.diss(address) external => DISPATCHER(true);
     function _.file(bytes32, uint256) external => DISPATCHER(true);
     function _.canCall(address, address, bytes4) external => canCallSummary() expect bool;
 }
@@ -37,6 +39,7 @@ rule entryPoints(method f) filtered { f -> !f.isView } {
 
     assert f.selector == sig:setOwner(address).selector ||
            f.selector == sig:setAuthority(address).selector ||
+           f.selector == sig:dissRateSetterBud(address,address).selector ||
            f.selector == sig:haltRateSetter(address).selector ||
            f.selector == sig:zeroCap(address).selector ||
            f.selector == sig:zeroLine(address).selector;
@@ -109,8 +112,41 @@ rule setAuthority_revert(address authority_) {
     assert lastReverted <=> revert1 || revert2, "Revert rules failed";
 }
 
+// Verify correct storage changes for non reverting dissRateSetterBud
+rule dissRateSetterBud(address rateSetter_, address bud) {
+    env e;
+
+    require rateSetter_ == rateSetter;
+
+    dissRateSetterBud(e, rateSetter_, bud);
+
+    mathint rateSetterBudsBudAfter = rateSetter.buds(bud);
+
+    assert rateSetterBudsBudAfter == 0, "Assert 1";
+}
+
+// Verify revert rules on dissRateSetterBud
+rule dissRateSetterBud_revert(address rateSetter_, address bud) {
+    env e;
+
+    require rateSetter_ == rateSetter;
+
+    address owner = owner();
+    address authority = authority();
+
+    // Happening in init scripts
+    require rateSetter.wards(currentContract) == 1;
+
+    dissRateSetterBud@withrevert(e, rateSetter_, bud);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = owner != e.msg.sender && (authority == 0 || !retCanCall);
+
+    assert lastReverted <=> revert1 || revert2, "Revert rules failed";
+}
+
 // Verify correct storage changes for non reverting haltRateSetter
-rule haltRateSetter(address rateSetter_) { 
+rule haltRateSetter(address rateSetter_) {
     env e;
 
     require rateSetter_ == rateSetter;
@@ -143,7 +179,7 @@ rule haltRateSetter_revert(address rateSetter_) {
 }
 
 // Verify correct storage changes for non reverting zeroCap
-rule zeroCap(address rateSetter_) { 
+rule zeroCap(address rateSetter_) {
     env e;
 
     require rateSetter_ == rateSetter;
@@ -179,7 +215,7 @@ rule zeroCap_revert(address rateSetter_) {
 }
 
 // Verify correct storage changes for non reverting zeroLine
-rule zeroLine(address rateSetter_) { 
+rule zeroLine(address rateSetter_) {
     env e;
 
     require rateSetter_ == rateSetter;

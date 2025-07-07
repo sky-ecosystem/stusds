@@ -39,8 +39,12 @@ contract YUsdsMomTest is DssTest {
     YUsdsMom        mom;
     address         pauseProxy;
 
+    address bud = address(0xb0d);
+    address bud2 = address(0xb0d2);
+
     event SetOwner(address indexed owner);
     event SetAuthority(address indexed authority);
+    event DissRateSetterBud(address indexed rateSetter, address bud);
     event HaltRateSetter(address indexed rateSetter);
     event ZeroCap(address indexed rateSetter);
     event ZeroLine(address indexed rateSetter);
@@ -56,6 +60,10 @@ contract YUsdsMomTest is DssTest {
         rateSetter = YUsdsRateSetter(inst.rateSetter);
         mom = YUsdsMom(inst.mom);
 
+        address[] memory buds = new address[](2);
+        buds[0] = bud;
+        buds[1] = bud2;
+
         YUsdsConfig memory conf = YUsdsConfig({
             clip        : address(yusds.clip()),
             ysr         : 1000000001547125957863212448,
@@ -70,7 +78,7 @@ contract YUsdsMomTest is DssTest {
             minDutyBps  : 1,
             maxDutyBps  : 3000,
             stepDutyBps : 100,
-            buds        : new address[](0)
+            buds        : buds
         });
         vm.startPrank(pauseProxy);
         YUsdsInit.init(dss, inst, conf);
@@ -128,6 +136,23 @@ contract YUsdsMomTest is DssTest {
         emit SetAuthority(address(0x123));
         mom.setAuthority(address(0x123));
         assertEq(mom.authority(), address(0x123));
+    }
+
+    function _checkDiss(address who) internal {
+        vm.prank(who);
+        vm.expectEmit(true, true, true, true);
+        emit DissRateSetterBud(address(rateSetter), bud2);
+        mom.dissRateSetterBud(address(rateSetter), bud2);
+        assertEq(rateSetter.buds(bud), 1);
+        assertEq(rateSetter.buds(bud2), 0);
+    }
+
+    function testDissOwner() public {
+        _checkDiss(address(pauseProxy));
+    }
+
+    function testDissHat() public {
+        _checkDiss(chief.hat());
     }
 
     function _checkHalt(address who) internal {

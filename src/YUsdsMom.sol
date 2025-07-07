@@ -25,6 +25,7 @@ interface YUsdsLike {
 }
 
 interface RateSetterLike {
+    function diss(address) external;
     function file(bytes32, uint256) external;
 }
 
@@ -39,6 +40,7 @@ contract YUsdsMom {
     // --- Events ---
     event SetOwner(address indexed owner);
     event SetAuthority(address indexed authority);
+    event DissRateSetterBud(address indexed rateSetter, address bud);
     event HaltRateSetter(address indexed rateSetter);
     event ZeroCap(address indexed rateSetter);
     event ZeroLine(address indexed rateSetter);
@@ -84,6 +86,11 @@ contract YUsdsMom {
     }
 
     // --- Emergency Actions ---
+    function dissRateSetterBud(address rateSetter, address bud) external auth {
+        RateSetterLike(rateSetter).diss(bud);
+        emit DissRateSetterBud(rateSetter, bud);
+    }
+
     function haltRateSetter(address rateSetter) external auth {
         RateSetterLike(rateSetter).file("bad", 1);
         emit HaltRateSetter(rateSetter);
