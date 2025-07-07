@@ -294,8 +294,6 @@ rule file_revert(bytes32 what, uint256 data) {
 // Verify correct storage changes for non reverting file
 rule file_id(bytes32 id, bytes32 what, uint256 data) {
     env e;
-    bytes32 other;
-    require other != id;
 
     bytes32 ilk = ilk();
     require ilk != to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000);
@@ -450,7 +448,7 @@ rule set_revert(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
     require jug.wards(currentContract) == 1;
     // Contracts behaviour
     require rho <= e.block.timestamp && jRho <= e.block.timestamp;
-    // Logical assumption
+    // Practical assumption
     require e.block.timestamp <= max_uint64;
 
     bool revert1  = e.msg.value > 0;
@@ -462,7 +460,7 @@ rule set_revert(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
     bool revert7  = ysrBps < ysrMin;
     bool revert8  = ysrBps > ysrMax;
     bool revert9  = ysrDelta > ysrStep;
-    bool revert10 = ysrRAY < RAY();
+    bool revert10 = ysrRAY < RAY(); // This actually doesn't trigger as conv used won't return that value
     bool revert11 = dutyStep == 0;
     bool revert12 = dutyBps < dutyMin;
     bool revert13 = dutyBps > dutyMax;
@@ -472,6 +470,7 @@ rule set_revert(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
     bool revert17 = cap > maxCap;
 
     storage initial = lastStorage;
+
     // Filter out all the reverts happening in both drip calls
     yusds.drip(e);
     jug.drip(e, ilk);
@@ -481,7 +480,7 @@ rule set_revert(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
     assert lastReverted <=> revert1  || revert2  || revert3  ||
                             revert4  || revert5  || revert6  ||
                             revert7  || revert8  || revert9  ||
-                            revert11 || revert12 || revert13 ||
-                            revert14 || revert15 || revert16 ||
-                            revert17, "Revert rules failed";
+                            revert10 || revert11 || revert12 ||
+                            revert13 || revert14 || revert15 ||
+                            revert16 || revert17 , "Revert rules failed";
 }
