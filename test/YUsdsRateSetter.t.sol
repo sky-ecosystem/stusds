@@ -25,12 +25,12 @@ import { YUsdsInit, YUsdsConfig } from "deploy/YUsdsInit.sol";
 import { ClipMock } from "test/mocks/ClipMock.sol";
 
 interface ConvLike {
-    function btor(uint256 bps) external pure returns (uint256 ray);
-    function rtob(uint256 ray) external pure returns (uint256 bps);
+    function btor(uint256) external pure returns (uint256);
+    function rtob(uint256) external pure returns (uint256);
 }
 
 interface YUSDSLike {
-    function wards(address usr) external view returns (uint256);
+    function wards(address) external view returns (uint256);
     function ysr() external view returns (uint256);
 }
 
@@ -76,7 +76,7 @@ contract YUsdsRateSetterTest is DssTest {
     event Set(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap);
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("ETH_RPC_URL"), 22725635); // TODO: remove the specific block
+        vm.createSelectFork(vm.envString("ETH_RPC_URL"));
         dss = MCD.loadFromChainlog(CHAINLOG);
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
 
@@ -100,9 +100,9 @@ contract YUsdsRateSetterTest is DssTest {
             minYsrBps   : 1,
             maxYsrBps   : 3000,
             stepYsrBps  : 100,
-            minDutyBps  : 1,
-            maxDutyBps  : 3000,
-            stepDutyBps : 100,
+            minDutyBps  : 2,
+            maxDutyBps  : 4000,
+            stepDutyBps : 200,
             buds        : buds
         });
         vm.startPrank(pauseProxy);
@@ -149,9 +149,9 @@ contract YUsdsRateSetterTest is DssTest {
         assertEq(maxYsr, 3000);
         assertEq(ysrStep, 100);
         (uint16 minDuty, uint16 maxDuty, uint256 dutyStep) = rateSetter.dutyCfg();
-        assertEq(minDuty, 1);
-        assertEq(maxDuty, 3000);
-        assertEq(dutyStep, 100);
+        assertEq(minDuty, 2);
+        assertEq(maxDuty, 4000);
+        assertEq(dutyStep, 200);
         assertEq(rateSetter.buds(bud), 1);
         assertEq(rateSetter.buds(bud2), 1);
         assertEq(dss.chainlog.getAddress("YUSDS_RATE_SETTER"), address(rateSetter));
@@ -226,7 +226,7 @@ contract YUsdsRateSetterTest is DssTest {
         rateSetter.file("maxLine", RAD - 1);
 
         vm.expectRevert("YUsdsRateSetter/maxCap-insane-value");
-        rateSetter.file("maxCap", 1e27 * WAD);
+        rateSetter.file("maxCap", RAD);
 
         vm.stopPrank();
 
@@ -260,9 +260,9 @@ contract YUsdsRateSetterTest is DssTest {
 
     function testFileIlk() public {
         (uint16 min, uint16 max, uint16 step) = rateSetter.dutyCfg();
-        assertEq(min, 1);
-        assertEq(max, 3000);
-        assertEq(step, 100);
+        assertEq(min, 2);
+        assertEq(max, 4000);
+        assertEq(step, 200);
 
         vm.startPrank(pauseProxy);
         vm.expectEmit(true, true, true, true);
@@ -326,15 +326,15 @@ contract YUsdsRateSetterTest is DssTest {
         dss.jug.drip(ILK);
         vm.startPrank(pauseProxy);
         yusds.file("ysr", conv.btor(3050)); // outside range
-        dss.jug.file(ILK, "duty", conv.btor(3050)); // outside range
+        dss.jug.file(ILK, "duty", conv.btor(4050)); // outside range
         vm.stopPrank();
 
         vm.startPrank(bud);
-        rateSetter.set(2999, 2999, 0, 0);
+        rateSetter.set(2999, 3999, 0, 0);
         vm.stopPrank();
 
         assertEq(yusds.ysr(), conv.btor(2999));
-        assertEq(_duty(), conv.btor(2999));
+        assertEq(_duty(), conv.btor(3999));
     }
 
     function testSetRatesBelowMin() public {

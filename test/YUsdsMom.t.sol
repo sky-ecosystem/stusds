@@ -46,7 +46,7 @@ contract YUsdsMomTest is DssTest {
     event ZeroLine(address indexed rateSetter);
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("ETH_RPC_URL"), 22725635); // TODO: remove the specific block
+        vm.createSelectFork(vm.envString("ETH_RPC_URL"));
         dss = MCD.loadFromChainlog(CHAINLOG);
         chief = ChiefLike(dss.chainlog.getAddress("MCD_ADM"));
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
@@ -127,10 +127,10 @@ contract YUsdsMomTest is DssTest {
         vm.expectEmit(true, true, true, true);
         emit SetAuthority(address(0x123));
         mom.setAuthority(address(0x123));
-        assertEq(address(mom.authority()), address(0x123));
+        assertEq(mom.authority(), address(0x123));
     }
 
-    function checkHalt(address who) internal {
+    function _checkHalt(address who) internal {
         vm.prank(who);
         vm.expectEmit(true, true, true, true);
         emit HaltRateSetter(address(rateSetter));
@@ -139,14 +139,14 @@ contract YUsdsMomTest is DssTest {
     }
 
     function testHaltOwner() public {
-        checkHalt(address(pauseProxy));
+        _checkHalt(address(pauseProxy));
     }
 
     function testHaltHat() public {
-        checkHalt(chief.hat());
+        _checkHalt(chief.hat());
     }
 
-    function checkZeroCap(address who) internal {
+    function _checkZeroCap(address who) internal {
         vm.prank(who);
         vm.expectEmit(true, true, true, true);
         emit ZeroCap(address(rateSetter));
@@ -156,14 +156,14 @@ contract YUsdsMomTest is DssTest {
     }
 
     function testZeroCapOwner() public {
-        checkHalt(address(pauseProxy));
+        _checkZeroCap(address(pauseProxy));
     }
 
     function testZeroCapHat() public {
-        checkHalt(chief.hat());
+        _checkZeroCap(chief.hat());
     }
 
-    function checkZeroLine(address who) internal {
+    function _checkZeroLine(address who) internal {
         vm.prank(who);
         vm.expectEmit(true, true, true, true);
         emit ZeroLine(address(rateSetter));
@@ -173,10 +173,10 @@ contract YUsdsMomTest is DssTest {
     }
 
     function testZeroLineOwner() public {
-        checkZeroLine(address(pauseProxy));
+        _checkZeroLine(address(pauseProxy));
     }
 
     function testZeroLineHat() public {
-        checkZeroLine(chief.hat());
+        _checkZeroLine(chief.hat());
     }
 }
