@@ -262,8 +262,9 @@ contract YUsds is UUPSUpgradeable {
     // --- Set ilk debt ceiling ---
 
     function _setLine() internal {
+        // It is assumed that general vat.Line will be set to a very
+        // big number that won't require any constant update
         vat.file(ilk, "line", _min(line, _subcap(totalSupply * chi, clip.Due())));
-        // TODO: define if we want to update the vat.Line as well (quite probably yes)
     }
 
     // --- Savings Rate Accumulation external/internal function ---
