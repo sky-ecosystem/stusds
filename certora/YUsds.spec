@@ -65,7 +65,7 @@ definition _min(mathint x, mathint y) returns mathint = x < y ? x : y;
 definition _subcap(mathint x, mathint y) returns mathint = x > y ? x - y : 0;
 
 definition defNewChi(env e) returns mathint = e.block.timestamp > rho() ? aux.rpow(ysr(), require_uint256(e.block.timestamp - rho())) * chi() / RAY() : chi();
-definition defConvertToShares(env e, mathint assets) returns mathint = defNewChi(e) > 0 ? assets * RAY() / defNewChi(e) : 0; // The else path should provoke a revert
+definition defConvertToShares(env e, mathint assets) returns mathint = defNewChi(e) > 0 ? assets * RAY() / defNewChi(e) : 0;
 definition defConvertToAssets(env e, mathint shares) returns mathint = shares * defNewChi(e) / RAY();
 
 
@@ -409,6 +409,7 @@ rule invariant_maxRedeem(address owner) {
     // 2) allowed max shares don't go over the unutilized funds
     require e.msg.value == 0;
     require shares * newChiCalc <= max_uint256;
+    require assetsCalc > 0;
     require e.block.timestamp == rho || rpowRes * chi <= max_uint256;
     require e.block.timestamp == rho || dripDiff >= 0;
     require e.block.timestamp == rho || totalSupply * newChiCalc <= max_uint256;
@@ -1029,7 +1030,14 @@ rule convertToAssets(uint256 shares) {
 rule maxDeposit(address anyAddr) {
     env e;
 
-    mathint assetsCalc = cap() == max_uint256 ? max_uint256 : _subcap(cap(), totalSupply() * defNewChi(e) / RAY());
+    mathint newChiCalc = defNewChi(e);
+    mathint assetsCalc = newChiCalc == 0
+                         ? 0
+                         : (
+                           cap() < max_uint256
+                           ? _subcap(cap(), totalSupply() * defNewChi(e) / RAY())
+                           : max_uint256
+                           );
 
     mathint assets = maxDeposit(e, anyAddr);
 
@@ -1170,9 +1178,13 @@ rule maxMint(address anyAddr) {
     env e;
 
     mathint newChiCalc = defNewChi(e);
-    mathint sharesCalc = cap() == max_uint256
-                         ? max_uint256
-                         : (newChiCalc > 0 ? _subcap(cap(), totalSupply() * newChiCalc / RAY()) * RAY() / newChiCalc : 0); // Else path won't be evaluated as should revert
+    mathint sharesCalc = newChiCalc == 0
+                         ? 0
+                         : (
+                           cap() < max_uint256
+                           ? (_subcap(cap(), totalSupply() * newChiCalc / RAY()) * RAY() / newChiCalc)
+                           : max_uint256
+                           );
 
     mathint shares = maxMint(e, anyAddr);
 
@@ -1345,7 +1357,7 @@ rule previewWithdraw(uint256 assets) {
     env e;
 
     mathint newChiCalc = defNewChi(e);
-    mathint sharesCalc = newChiCalc > 0 ? _divup(assets * RAY(), newChiCalc) : 0; // Else path won't be evaluated as should revert
+    mathint sharesCalc = newChiCalc > 0 ? _divup(assets * RAY(), newChiCalc) : 0;
 
     mathint shares = previewWithdraw(e, assets);
 
@@ -1507,10 +1519,12 @@ rule maxRedeem(address owner) {
     mathint jugRpowRes = aux.rpow(jugDuty, require_uint256(e.block.timestamp - jugRho));
     mathint vatIlkRate = e.block.timestamp > jugRho ? jugRpowRes * vatIlkRatePrev / RAY() : vatIlkRatePrev;
 
-    mathint sharesCalc = _min(
-        balanceOf(owner),
-        newChiCalc > 0 ? _subcap(totalSupply() * newChiCalc, vatIlkArt * vatIlkRate + Due) / newChiCalc : 0 // Else path should provoke revert
-    );
+    mathint sharesCalc = newChiCalc > 0
+                         ? _min(
+                                balanceOf(owner),
+                                newChiCalc > 0 ? _subcap(totalSupply() * newChiCalc, vatIlkArt * vatIlkRate + Due) / newChiCalc : 0 // Needs the check again to avoid division by zero
+                           )
+                         : 0;
 
     mathint shares = maxRedeem(e, owner);
 
@@ -1649,20 +1663,21 @@ rule redeem_revert(uint256 shares, address receiver, address owner) {
 
     bool revert1  = e.msg.value > 0;
     bool revert2  = shares * newChiCalc > max_uint256;
-    bool revert3  = e.block.timestamp > rho && rpowRes * chi > max_uint256;
-    bool revert4  = e.block.timestamp > rho && dripDiff < 0;
-    bool revert5  = e.block.timestamp > rho && totalSupply * newChiCalc > max_uint256;
-    bool revert6  = e.block.timestamp > rho && totalSupply * chi > max_uint256;
-    bool revert7  = e.block.timestamp > rho && dripDiff * RAY() > max_uint256;
-    bool revert8  = balanceOfOwner < shares;
-    bool revert9  = owner != e.msg.sender && allowanceOwnerSender < shares;
-    bool revert10 = totalSupply * newChiCalc > max_uint256;
-    bool revert11 = vatIlkArt * vatIlkRate + Due + assetsCalc * RAY() > totalSupply * newChiCalc;
+    bool revert3  = assetsCalc == 0;
+    bool revert4  = e.block.timestamp > rho && rpowRes * chi > max_uint256;
+    bool revert5  = e.block.timestamp > rho && dripDiff < 0;
+    bool revert6  = e.block.timestamp > rho && totalSupply * newChiCalc > max_uint256;
+    bool revert7  = e.block.timestamp > rho && totalSupply * chi > max_uint256;
+    bool revert8  = e.block.timestamp > rho && dripDiff * RAY() > max_uint256;
+    bool revert9  = balanceOfOwner < shares;
+    bool revert10 = owner != e.msg.sender && allowanceOwnerSender < shares;
+    bool revert11 = totalSupply * newChiCalc > max_uint256;
+    bool revert12 = vatIlkArt * vatIlkRate + Due + assetsCalc * RAY() > totalSupply * newChiCalc;
 
-    assert lastReverted <=> revert1  || revert2 || revert3 ||
-                            revert4  || revert5 || revert6 ||
-                            revert7  || revert8 || revert9  ||
-                            revert10 || revert11, "Revert rules failed";
+    assert lastReverted <=> revert1  || revert2  || revert3  ||
+                            revert4  || revert5  || revert6  ||
+                            revert7  || revert8  || revert9  ||
+                            revert10 || revert11 || revert12, "Revert rules failed";
 }
 
 // Verify correct storage changes for non reverting permit

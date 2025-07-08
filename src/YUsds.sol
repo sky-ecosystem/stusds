@@ -405,7 +405,7 @@ contract YUsds is UUPSUpgradeable {
 
     function convertToShares(uint256 assets) public view returns (uint256) {
         uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
-        return assets * RAY / chi_;
+        return chi_ > 0 ? assets * RAY / chi_ : 0;
     }
 
     function convertToAssets(uint256 shares) public view returns (uint256) {
@@ -415,8 +415,10 @@ contract YUsds is UUPSUpgradeable {
 
     function maxDeposit(address) external view returns (uint256) {
         uint256 cap_ = cap;
-        if (cap_ < type(uint256).max) {
-            uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
+        if (chi_ == 0) {
+            return 0;
+        } else if (cap_ < type(uint256).max) {
             return _subcap(cap_, totalSupply * chi_ / RAY);
         } else {
             return type(uint256).max;
@@ -439,8 +441,10 @@ contract YUsds is UUPSUpgradeable {
 
     function maxMint(address) external view returns (uint256) {
         uint256 cap_ = cap;
-        if (cap_ < type(uint256).max) {
-            uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
+        if (chi_ == 0) {
+            return 0;
+        } else if (cap_ < type(uint256).max) {
             return _subcap(cap_, totalSupply * chi_ / RAY) * RAY / chi_;
         } else {
             return type(uint256).max;
@@ -477,7 +481,7 @@ contract YUsds is UUPSUpgradeable {
 
     function previewWithdraw(uint256 assets) external view returns (uint256) {
         uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
-        return _divup(assets * RAY, chi_);
+        return chi_ > 0 ? _divup(assets * RAY, chi_) : 0;
     }
 
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares) {
@@ -491,10 +495,12 @@ contract YUsds is UUPSUpgradeable {
         (uint256 duty_, uint256 rho_) = jug.ilks(ilk);
         rate = (block.timestamp > rho_) ? _rpow(duty_, block.timestamp - rho_) * rate / RAY : rate;
 
-        return _min(
-            balanceOf[owner],
-            _subcap(totalSupply * chi_, Art * rate + clip.Due()) / chi_
-        );
+        return chi_ > 0
+                    ? _min(
+                        balanceOf[owner],
+                        _subcap(totalSupply * chi_, Art * rate + clip.Due()) / chi_
+                    )
+                    : 0;
     }
 
     function previewRedeem(uint256 shares) external view returns (uint256) {
@@ -503,6 +509,7 @@ contract YUsds is UUPSUpgradeable {
 
     function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets) {
         assets = shares * _drip() / RAY;
+        require(assets > 0, "YUsds/assets-zero");
         _burn(assets, shares, receiver, owner);
     }
 

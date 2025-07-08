@@ -1434,10 +1434,25 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.convertToAssets(token.balanceOf(address(0x222))), 0);
         assertEq(token.totalAssets(), 0);
 
+        assertEq(token.convertToShares(1e18), 0);
+        assertEq(token.convertToAssets(1e18), 0);
+        assertEq(token.maxDeposit(address(0)), 0);
+        assertEq(token.previewDeposit(1e18), 0);
+        assertEq(token.maxMint(address(0)), 0);
+        assertEq(token.previewMint(1e18), 0);
+        assertEq(token.maxWithdraw(address(0x222)), 0);
+        assertEq(token.previewWithdraw(1e18), 0);
+        assertEq(token.maxRedeem(address(0x222)), 0);
+        assertEq(token.previewRedeem(1e18), 0);
+
         vm.expectRevert(stdError.divisionError);
         token.deposit(50e18, address(this));
         vm.expectRevert("YUsds/assets-zero");
         token.mint(50e18, address(this));
+        vm.expectRevert(stdError.divisionError);
+        vm.prank(address(0x222)); token.withdraw(1, address(this), address(this));
+        vm.expectRevert("YUsds/assets-zero");
+        vm.prank(address(0x222)); token.redeem(1, address(this), address(this));
     }
 
     function testCutChiZeroDueRounding() public {
