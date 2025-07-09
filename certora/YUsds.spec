@@ -91,6 +91,44 @@ invariant usdsBalance_greater_or_equal_than_totalAssets() usds.balanceOf(current
             }
 }
 
+rule invariant_deposit_redeem_after_cut() {
+    env e;
+
+    requireInvariant balanceSum_equals_totalSupply;
+
+    // What we want to prove, scenarios where chi is getting reduced
+    require chi() < RAY();
+
+    bytes32 ilk = ilk();
+
+    mathint jugRho; mathint a;
+    a, jugRho = jug.ilks(ilk);
+    // Avoid updates of chi that makes it > RAY
+    require rho() == e.block.timestamp;
+    mathint vatIlkArt; mathint vatIlkRate;
+    vatIlkArt, vatIlkRate, a, a, a = vat.ilks(ilk);
+
+    // Practical assumption
+    require e.block.timestamp < 2^64;
+    // Avoid external variables for the withdraw to revert
+    require vatIlkArt == 0 && Due == 0;
+    // Avoid overflows in jug
+    require jugRho == e.block.timestamp;
+    require jug.base() == 0;
+    require vatIlkRate * RAY() <= max_uint256;
+    // MCD set up
+    require vat.wards(jug) == 1;
+
+    uint256 amount;
+    require amount > 1;
+    uint256 shares = deposit(e, amount, e.msg.sender);
+
+    uint256 assets = redeem@withrevert(e, shares, e.msg.sender, e.msg.sender);
+
+    assert !lastReverted;
+    assert assets >= amount - 1;
+}
+
 rule invariant_maxDeposit() {
     env e;
 
