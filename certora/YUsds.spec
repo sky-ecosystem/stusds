@@ -123,10 +123,13 @@ rule invariant_deposit_redeem_after_cut() {
     require amount > 1;
     uint256 shares = deposit(e, amount, e.msg.sender);
 
+    uint256 maxWithdraw = maxWithdraw(e, e.msg.sender);
+
     uint256 assets = redeem@withrevert(e, shares, e.msg.sender, e.msg.sender);
 
-    assert !lastReverted;
-    assert assets >= amount - 1;
+    assert !lastReverted, "Assert 1";
+    assert maxWithdraw >= amount - 1, "Assert 2";
+    assert assets >= amount - 1, "Assert 3";
 }
 
 rule invariant_maxDeposit() {
