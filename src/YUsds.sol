@@ -242,7 +242,7 @@ contract YUsds is UUPSUpgradeable {
         } else if (what == "cap") {
             cap = data;
         } else if (what == "line") {
-            line = data; // If it is expected the new value has an immediate effect on vat[ilk].line, then call drip() right after
+            line = data; // If it is desired the new value has an immediate effect on vat[ilk].line, then call drip() right after
         } else revert("YUsds/file-unrecognized-param");
         emit File(what, data);
     }
@@ -262,7 +262,7 @@ contract YUsds is UUPSUpgradeable {
     // --- Set ilk debt ceiling ---
 
     function _setLine() internal {
-        // It is assumed that general vat.Line will be set to a very
+        // It is assumed that general vat.Line will be set to a relatively
         // big number that won't require any constant update
         vat.file(ilk, "line", _min(line, _subcap(totalSupply * chi, clip.Due())));
     }

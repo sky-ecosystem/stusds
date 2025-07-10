@@ -44,6 +44,7 @@ The `deposit` and `mint` functions accept an optional `uint16 referral` paramete
 * Deposits could be griefed by other deposits (because of the cap). Withdrawals could be griefed by borrowers. Borrows could be griefed by suppliers. These scenarios are assumed to be mitigated by the option to use flashbots and by the economic cost of such griefing for a long period.
 * Note that not being able to redeem all yUSDS instantly, and slashing due to bad debt accrual, might bring a risk of depeg/devaluation on other markets. 3rd-party integrations should be aware of this risk.
 * Users need to be aware that at the initial phase when yUSDS is still being filled up with deposits to balance out the existing loans debt, the impact of a cut call could be much more damaging for these users' deposits. Also within this timeframe, users won't be able to withdraw at all.
+* In the very rare case where `chi` was cut to an extremely low non-zero value (for example RAY/1000) it is advised not to deposit to the contract. Further deposits may suffer from rounding errors.
 
 ### Accounting:
 * In general the system aims to maintain a status where the supplied funds including accruals always back the debt. However this is not guaranteed (for example because of stability fee accrual or past `cut` operations).
