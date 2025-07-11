@@ -1313,22 +1313,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         token.redeem(burnAmount, to, to);
     }
 
-    function testCut(
-        uint256 depositAmount,
-        uint256 warp,
-        uint256 rad,
-        uint256 due,
-        uint256 line
-    ) public {
-        depositAmount = bound(depositAmount, 1_000 ether, 1_000_000 ether);
-        warp = bound(warp, 0, 365 days);
-        rad = bound(rad, 0, depositAmount * RAY / 5);
-
-        uint256 assets = _divup(rad, RAY);
-
-        deal(address(usds), address(this), depositAmount);
-        usds.approve(address(token), depositAmount);
-        token.deposit(depositAmount, address(this));
+    function testCut() public {
+        deal(address(usds), address(this), 10_000e18);
+        usds.approve(address(token), 10_000e18);
+        token.deposit(10_000e18, address(this));
 
         (,,, line1,) = dss.vat.ilks(token.ilk());
         uint256 supply = token.totalSupply();
@@ -1337,37 +1325,35 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         uint256 vatDaiVow = dss.vat.dai(address(dss.vow));
         assertLe(totalAssets, yusdsUsds);
         chiFirst = token.chi();
-        uint256 chiPrevDeduction = _rpow(token.ysr(), block.timestamp + warp - token.rho()) * token.chi() / RAY;
+        uint256 chiPrevDeduction = _rpow(token.ysr(), block.timestamp + 100 days - token.rho()) * token.chi() / RAY;
         diff1 = supply * chiPrevDeduction / RAY - supply * chiFirst / RAY;
-        chiLast = chiPrevDeduction * (totalAssets + diff1 - assets) / (totalAssets + diff1);
+        chiLast = chiPrevDeduction * (totalAssets + diff1 - 1_000e18) / (totalAssets + diff1);
 
-        vm.warp(block.timestamp + warp);
+        vm.warp(block.timestamp + 100 days);
 
         vm.expectEmit();
-        emit Cut(_divup(rad, RAY), chiPrevDeduction, chiLast);
-        vm.prank(pauseProxy); token.cut(rad);
+        emit Cut(1_000e18, chiPrevDeduction, chiLast);
+        vm.prank(pauseProxy); token.cut(1_000e45);
 
         (,,, line2,) = dss.vat.ilks(token.ilk());
-        assertApproxEqAbs(line2, line1 + diff1 * RAY - assets * RAY, 0.00000000000000001e45);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 - assets);
+        assertApproxEqAbs(line2, line1 + diff1 * RAY - 1_000e45, 0.00000000000000001e45);
+        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 - 1_000e18);
         assertEq(token.chi(), chiLast);
-        assertEq(dss.vat.dai(address(dss.vow)), vatDaiVow + assets * RAY);
+        assertEq(dss.vat.dai(address(dss.vow)), vatDaiVow + 1_000e45);
 
-        due = bound(due, 0, assets * RAY);
-        clip.setDue(due);
+        clip.setDue(300e18);
 
-        vm.prank(pauseProxy); token.cut(rad);
+        vm.prank(pauseProxy); token.cut(1_000e45);
 
         (,,, line3,) = dss.vat.ilks(token.ilk());
-        assertApproxEqAbs(line3, line2 - assets * RAY - due, 0.00000000000000001e45); // Also reduced by ongoing auction debt
+        assertApproxEqAbs(line3, line2 - 1_000e45 - 300e18, 0.00000000000000001e45); // Also reduced by ongoing auction debt
 
-        line = bound(line, 0, assets * RAY);
-        vm.prank(pauseProxy); token.file("line", line3 - assets * RAY - line);
+        vm.prank(pauseProxy); token.file("line", line3 - 1_000e45 - 500e45);
 
-        vm.prank(pauseProxy); token.cut(rad);
+        vm.prank(pauseProxy); token.cut(1_000e45);
 
         (,,, line4,) = dss.vat.ilks(token.ilk());
-        assertApproxEqAbs(line4, line3 - assets * RAY - line, 0.00000000000000001e45); // Limited by line
+        assertApproxEqAbs(line4, line3 - 1_000e45 - 500e45, 0.00000000000000001e45); // Limited by line
     }
 
     function testCutChiMinimal() public {
@@ -1497,5 +1483,62 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.chi(), 0);
         emit Cut(0, 0, 0);
         vm.prank(pauseProxy); token.cut(1 * 1e27);
+    }
+
+    function testCut(
+        uint256 depositAmount,
+        uint256 warp,
+        uint256 rad,
+        uint256 due,
+        uint256 line
+    ) public {
+        depositAmount = bound(depositAmount, 1_000 ether, 1_000_000 ether);
+        warp = bound(warp, 0, 365 days);
+        rad = bound(rad, 0, depositAmount * RAY / 5);
+
+        uint256 assets = _divup(rad, RAY);
+
+        deal(address(usds), address(this), depositAmount);
+        usds.approve(address(token), depositAmount);
+        token.deposit(depositAmount, address(this));
+
+        (,,, line1,) = dss.vat.ilks(token.ilk());
+        uint256 supply = token.totalSupply();
+        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 totalAssets = token.totalAssets();
+        uint256 vatDaiVow = dss.vat.dai(address(dss.vow));
+        assertLe(totalAssets, yusdsUsds);
+        chiFirst = token.chi();
+        uint256 chiPrevDeduction = _rpow(token.ysr(), block.timestamp + warp - token.rho()) * token.chi() / RAY;
+        diff1 = supply * chiPrevDeduction / RAY - supply * chiFirst / RAY;
+        chiLast = chiPrevDeduction * (totalAssets + diff1 - assets) / (totalAssets + diff1);
+
+        vm.warp(block.timestamp + warp);
+
+        vm.expectEmit();
+        emit Cut(_divup(rad, RAY), chiPrevDeduction, chiLast);
+        vm.prank(pauseProxy); token.cut(rad);
+
+        (,,, line2,) = dss.vat.ilks(token.ilk());
+        assertApproxEqAbs(line2, line1 + diff1 * RAY - assets * RAY, 0.00000000000000001e45);
+        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 - assets);
+        assertEq(token.chi(), chiLast);
+        assertEq(dss.vat.dai(address(dss.vow)), vatDaiVow + assets * RAY);
+
+        due = bound(due, 0, assets * RAY);
+        clip.setDue(due);
+
+        vm.prank(pauseProxy); token.cut(rad);
+
+        (,,, line3,) = dss.vat.ilks(token.ilk());
+        assertApproxEqAbs(line3, line2 - assets * RAY - due, 0.00000000000000001e45); // Also reduced by ongoing auction debt
+
+        line = bound(line, 0, assets * RAY);
+        vm.prank(pauseProxy); token.file("line", line3 - assets * RAY - line);
+
+        vm.prank(pauseProxy); token.cut(rad);
+
+        (,,, line4,) = dss.vat.ilks(token.ilk());
+        assertApproxEqAbs(line4, line3 - assets * RAY - line, 0.00000000000000001e45); // Limited by line
     }
 }
