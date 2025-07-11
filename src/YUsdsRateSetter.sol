@@ -186,6 +186,12 @@ contract YUsdsRateSetter {
         require(block.timestamp >= tau + toc, "YUsdsRateSetter/too-early");
         toc = uint128(block.timestamp);
 
+        require(line <= maxLine, "YUsdsRateSetter/line-too-high");
+        yusds.file("line", line); // New line will be immediately taken into account as yusds.drip will be called few lines below
+
+        require(cap <= maxCap, "YUsdsRateSetter/cap-too-high");
+        yusds.file("cap", cap);
+
         uint256 ray = _calcRate({
             bps    : ysrBps,
             oldBps : conv.rtob(yusds.ysr()),
@@ -202,12 +208,6 @@ contract YUsdsRateSetter {
         });
         jug.drip(ilk);
         jug.file(ilk, "duty", ray);
-
-        require(line <= maxLine, "YUsdsRateSetter/line-too-high");
-        yusds.file("line", line); // If it is desired the new value has an immediate effect on vat[ilk].line, then call yusds.drip() right after
-
-        require(cap <= maxCap, "YUsdsRateSetter/cap-too-high");
-        yusds.file("cap", cap);
 
         emit Set(ysrBps, dutyBps, line, cap);
     }

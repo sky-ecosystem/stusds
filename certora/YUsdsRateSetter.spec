@@ -456,18 +456,18 @@ rule set_revert(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
     bool revert3  = budsSender != 1;
     bool revert4  = tau + toc > max_uint128;
     bool revert5  = e.block.timestamp < tau + toc;
-    bool revert6  = ysrStep == 0;
-    bool revert7  = ysrBps < ysrMin;
-    bool revert8  = ysrBps > ysrMax;
-    bool revert9  = ysrDelta > ysrStep;
-    bool revert10 = ysrRAY < RAY(); // This actually doesn't trigger as conv used won't return that value
-    bool revert11 = dutyStep == 0;
-    bool revert12 = dutyBps < dutyMin;
-    bool revert13 = dutyBps > dutyMax;
-    bool revert14 = dutyDelta > dutyStep;
-    bool revert15 = dutyRAY < RAY();
-    bool revert16 = line > maxLine;
-    bool revert17 = cap > maxCap;
+    bool revert6  = line > maxLine;
+    bool revert7  = cap > maxCap;
+    bool revert8  = ysrStep == 0;
+    bool revert9  = ysrBps < ysrMin;
+    bool revert10 = ysrBps > ysrMax;
+    bool revert11 = ysrDelta > ysrStep;
+    bool revert12 = ysrRAY < RAY(); // This actually doesn't trigger as conv used won't return that value
+    bool revert13 = dutyStep == 0;
+    bool revert14 = dutyBps < dutyMin;
+    bool revert15 = dutyBps > dutyMax;
+    bool revert16 = dutyDelta > dutyStep;
+    bool revert17 = dutyRAY < RAY();
 
     storage initial = lastStorage;
 
