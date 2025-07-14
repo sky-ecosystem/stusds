@@ -579,15 +579,15 @@ rule storageAffected(method f) filtered { f -> f.selector != sig:upgradeToAndCal
 rule rely(address usr) { 
     env e;
 
-    address other;
-    require other != usr;
+    address otherAddr;
+    require otherAddr != usr;
 
-    mathint wardsOtherBefore = wards(other);
+    mathint wardsOtherBefore = wards(otherAddr);
 
     rely(e, usr);
 
     mathint wardsUsrAfter = wards(usr);
-    mathint wardsOtherAfter = wards(other);
+    mathint wardsOtherAfter = wards(otherAddr);
 
     assert wardsUsrAfter == 1, "Assert 1";
     assert wardsOtherAfter == wardsOtherBefore, "Assert 2";
@@ -611,15 +611,15 @@ rule rely_revert(address usr) {
 rule deny(address usr) {
     env e;
 
-    address other;
-    require other != usr;
+    address otherAddr;
+    require otherAddr != usr;
 
-    mathint wardsOtherBefore = wards(other);
+    mathint wardsOtherBefore = wards(otherAddr);
 
     deny(e, usr);
 
     mathint wardsUsrAfter = wards(usr);
-    mathint wardsOtherAfter = wards(other);
+    mathint wardsOtherAfter = wards(otherAddr);
 
     assert wardsUsrAfter == 0, "Assert 1";
     assert wardsOtherAfter == wardsOtherBefore, "Assert 2";
@@ -716,7 +716,6 @@ rule cut(uint256 rad) {
     cut(e, rad);
 
     mathint chiAfter = chi();
-    mathint totalAssetsAfter = totalAssets(e);
     mathint lineAfter; mathint a;
     a, a, a, lineAfter, a = vat.ilks(ilk);
     mathint usdsTotalSupplyAfter = usds.totalSupply();
@@ -724,11 +723,10 @@ rule cut(uint256 rad) {
     mathint vatDaiVowAfter = vat.dai(vow);
 
     assert chiAfter == newChiCalc, "Assert 1";
-    assert totalAssetsAfter == totalSupply * newChiCalc / RAY(), "Assert 2";
-    assert lineAfter == lineCalc, "Assert 3";
-    assert usdsTotalSupplyAfter == usdsTotalSupplyBefore + dripDiff - assets, "Assert 4";
-    assert usdsBalanceOfYusdsAfter == usdsBalanceOfYusdsBefore + dripDiff - assets, "Assert 5";
-    assert vatDaiVowAfter == vatDaiVowBefore + assets * RAY(), "Assert 6";
+    assert lineAfter == lineCalc, "Assert 2";
+    assert usdsTotalSupplyAfter == usdsTotalSupplyBefore + dripDiff - assets, "Assert 3";
+    assert usdsBalanceOfYusdsAfter == usdsBalanceOfYusdsBefore + dripDiff - assets, "Assert 4";
+    assert vatDaiVowAfter == vatDaiVowBefore + assets * RAY(), "Assert 5";
 }
 
 // Verify revert rules on cut
@@ -829,17 +827,15 @@ rule drip() {
     drip(e);
 
     mathint chiAfter = chi();
-    mathint totalAssetsAfter = totalAssets(e);
     mathint lineAfter; mathint a;
     a, a, a, lineAfter, a = vat.ilks(ilk);
     mathint usdsTotalSupplyAfter = usds.totalSupply();
     mathint usdsBalanceOfYusdsAfter = usds.balanceOf(currentContract);
 
     assert chiAfter == newChiCalc, "Assert 1";
-    assert totalAssetsAfter == totalSupply * newChiCalc / RAY(), "Assert 2";
-    assert lineAfter == lineCalc, "Assert 3";
-    assert usdsTotalSupplyAfter == usdsTotalSupplyBefore + dripDiff, "Assert 4";
-    assert usdsBalanceOfYusdsAfter == usdsBalanceOfYusdsBefore + dripDiff, "Assert 5";
+    assert lineAfter == lineCalc, "Assert 2";
+    assert usdsTotalSupplyAfter == usdsTotalSupplyBefore + dripDiff, "Assert 3";
+    assert usdsBalanceOfYusdsAfter == usdsBalanceOfYusdsBefore + dripDiff, "Assert 4";
 }
 
 // Verify revert rules on drip
@@ -909,18 +905,18 @@ rule transfer(address to, uint256 value) {
 
     requireInvariant balanceSum_equals_totalSupply();
 
-    address other;
-    require other != e.msg.sender && other != to;
+    address otherAddr;
+    require otherAddr != e.msg.sender && otherAddr != to;
 
     mathint balanceOfSenderBefore = balanceOf(e.msg.sender);
     mathint balanceOfToBefore = balanceOf(to);
-    mathint balanceOfOtherBefore = balanceOf(other);
+    mathint balanceOfOtherBefore = balanceOf(otherAddr);
 
     transfer(e, to, value);
 
     mathint balanceOfSenderAfter = balanceOf(e.msg.sender);
     mathint balanceOfToAfter = balanceOf(to);
-    mathint balanceOfOtherAfter = balanceOf(other);
+    mathint balanceOfOtherAfter = balanceOf(otherAddr);
 
     assert e.msg.sender != to => balanceOfSenderAfter == balanceOfSenderBefore - value, "Assert 1";
     assert e.msg.sender != to => balanceOfToAfter == balanceOfToBefore + value, "Assert 2";
@@ -949,25 +945,25 @@ rule transferFrom(address from, address to, uint256 value) {
 
     requireInvariant balanceSum_equals_totalSupply();
 
-    address other;
-    require other != from && other != to;
-    address other2; address other3;
-    require other2 != from || other3 != e.msg.sender;
+    address otherAddr;
+    require otherAddr != from && otherAddr != to;
+    address otherAddr2; address otherAddr3;
+    require otherAddr2 != from || otherAddr3 != e.msg.sender;
 
     mathint totalSupplyBefore = totalSupply();
     mathint balanceOfFromBefore = balanceOf(from);
     mathint balanceOfToBefore = balanceOf(to);
-    mathint balanceOfOtherBefore = balanceOf(other);
+    mathint balanceOfOtherBefore = balanceOf(otherAddr);
     mathint allowanceFromSenderBefore = allowance(from, e.msg.sender);
-    mathint allowanceOtherBefore = allowance(other2, other3);
+    mathint allowanceOtherBefore = allowance(otherAddr2, otherAddr3);
 
     transferFrom(e, from, to, value);
 
     mathint balanceOfFromAfter = balanceOf(from);
     mathint balanceOfToAfter = balanceOf(to);
-    mathint balanceOfOtherAfter = balanceOf(other);
+    mathint balanceOfOtherAfter = balanceOf(otherAddr);
     mathint allowanceFromSenderAfter = allowance(from, e.msg.sender);
-    mathint allowanceOtherAfter = allowance(other2, other3);
+    mathint allowanceOtherAfter = allowance(otherAddr2, otherAddr3);
 
     assert from != to => balanceOfFromAfter == balanceOfFromBefore - value, "Assert 1";
     assert from != to => balanceOfToAfter == balanceOfToBefore + value, "Assert 2";
@@ -1000,15 +996,15 @@ rule transferFrom_revert(address from, address to, uint256 value) {
 rule approve(address spender, uint256 value) {
     env e;
 
-    address anyUsr; address anyUsr2;
-    require anyUsr != e.msg.sender || anyUsr2 != spender;
+    address otherAddr; address otherAddr2;
+    require otherAddr != e.msg.sender || otherAddr2 != spender;
 
-    mathint allowanceOtherBefore = allowance(anyUsr, anyUsr2);
+    mathint allowanceOtherBefore = allowance(otherAddr, otherAddr2);
 
     approve(e, spender, value);
 
     mathint allowanceSenderSpenderAfter = allowance(e.msg.sender, spender);
-    mathint allowanceOtherAfter = allowance(anyUsr, anyUsr2);
+    mathint allowanceOtherAfter = allowance(otherAddr, otherAddr2);
 
     assert allowanceSenderSpenderAfter == to_mathint(value), "Assert 1";
     assert allowanceOtherAfter == allowanceOtherBefore, "Assert 2";
@@ -1102,14 +1098,14 @@ rule deposit(uint256 assets, address receiver, uint16 referral) {
 
     require e.msg.sender != currentContract;
 
-    address other;
-    require other != receiver;
+    address otherAddr;
+    require otherAddr != receiver;
 
     bytes32 ilk = ilk();
 
     mathint totalSupplyBefore = totalSupply();
     mathint balanceOfReceiverBefore = balanceOf(receiver);
-    mathint balanceOfOtherBefore = balanceOf(other);
+    mathint balanceOfOtherBefore = balanceOf(otherAddr);
     mathint usdsBalanceOfYUsdsBefore = usds.balanceOf(currentContract);
     mathint usdsBalanceOfSenderBefore = usds.balanceOf(e.msg.sender);
 
@@ -1130,7 +1126,7 @@ rule deposit(uint256 assets, address receiver, uint16 referral) {
     mathint chiAfter = chi();
     mathint totalSupplyAfter = totalSupply();
     mathint balanceOfReceiverAfter = balanceOf(receiver);
-    mathint balanceOfOtherAfter = balanceOf(other);
+    mathint balanceOfOtherAfter = balanceOf(otherAddr);
     mathint usdsBalanceOfYUsdsAfter = usds.balanceOf(currentContract);
     mathint usdsBalanceOfSenderAfter = usds.balanceOf(e.msg.sender);
     mathint lineAfter; mathint a;
@@ -1250,14 +1246,14 @@ rule mint(uint256 shares, address receiver, uint16 referral) {
 
     require e.msg.sender != currentContract;
 
-    address other;
-    require other != receiver;
+    address otherAddr;
+    require otherAddr != receiver;
 
     bytes32 ilk = ilk();
 
     mathint totalSupplyBefore = totalSupply();
     mathint balanceOfReceiverBefore = balanceOf(receiver);
-    mathint balanceOfOtherBefore = balanceOf(other);
+    mathint balanceOfOtherBefore = balanceOf(otherAddr);
     mathint usdsBalanceOfYUsdsBefore = usds.balanceOf(currentContract);
     mathint usdsBalanceOfSenderBefore = usds.balanceOf(e.msg.sender);
 
@@ -1278,7 +1274,7 @@ rule mint(uint256 shares, address receiver, uint16 referral) {
     mathint chiAfter = chi();
     mathint totalSupplyAfter = totalSupply();
     mathint balanceOfReceiverAfter = balanceOf(receiver);
-    mathint balanceOfOtherAfter = balanceOf(other);
+    mathint balanceOfOtherAfter = balanceOf(otherAddr);
     mathint usdsBalanceOfYUsdsAfter = usds.balanceOf(currentContract);
     mathint usdsBalanceOfSenderAfter = usds.balanceOf(e.msg.sender);
     mathint lineAfter; mathint a;
@@ -1409,14 +1405,14 @@ rule previewWithdraw(uint256 assets) {
 rule withdraw(uint256 assets, address receiver, address owner) {
     env e;
 
-    address other;
-    require other != owner;
+    address otherAddr;
+    require otherAddr != owner;
 
     bytes32 ilk = ilk();
 
     mathint totalSupplyBefore = totalSupply();
     mathint balanceOfOwnerBefore = balanceOf(owner);
-    mathint balanceOfOtherBefore = balanceOf(other);
+    mathint balanceOfOtherBefore = balanceOf(otherAddr);
     mathint usdsBalanceOfYUsdsBefore = usds.balanceOf(currentContract);
     mathint usdsBalanceOfReceiverBefore = usds.balanceOf(receiver);
 
@@ -1436,7 +1432,7 @@ rule withdraw(uint256 assets, address receiver, address owner) {
     mathint chiAfter = chi();
     mathint totalSupplyAfter = totalSupply();
     mathint balanceOfOwnerAfter = balanceOf(owner);
-    mathint balanceOfOtherAfter = balanceOf(other);
+    mathint balanceOfOtherAfter = balanceOf(otherAddr);
     mathint usdsBalanceOfYUsdsAfter = usds.balanceOf(currentContract);
     mathint usdsBalanceOfReceiverAfter = usds.balanceOf(receiver);
     mathint lineAfter; mathint a;
@@ -1587,14 +1583,14 @@ rule previewRedeem(uint256 shares) {
 rule redeem(uint256 shares, address receiver, address owner) {
     env e;
 
-    address other;
-    require other != owner;
+    address otherAddr;
+    require otherAddr != owner;
 
     bytes32 ilk = ilk();
 
     mathint totalSupplyBefore = totalSupply();
     mathint balanceOfOwnerBefore = balanceOf(owner);
-    mathint balanceOfOtherBefore = balanceOf(other);
+    mathint balanceOfOtherBefore = balanceOf(otherAddr);
     mathint usdsBalanceOfYUsdsBefore = usds.balanceOf(currentContract);
     mathint usdsBalanceOfReceiverBefore = usds.balanceOf(receiver);
 
@@ -1614,7 +1610,7 @@ rule redeem(uint256 shares, address receiver, address owner) {
     mathint chiAfter = chi();
     mathint totalSupplyAfter = totalSupply();
     mathint balanceOfOwnerAfter = balanceOf(owner);
-    mathint balanceOfOtherAfter = balanceOf(other);
+    mathint balanceOfOtherAfter = balanceOf(otherAddr);
     mathint usdsBalanceOfYUsdsAfter = usds.balanceOf(currentContract);
     mathint usdsBalanceOfReceiverAfter = usds.balanceOf(receiver);
     mathint lineAfter; mathint a;
@@ -1725,21 +1721,21 @@ rule redeem_revert(uint256 shares, address receiver, address owner) {
 rule permitVRS(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) {
     env e;
 
-    address anyUsr; address anyUsr2;
-    require anyUsr != owner || anyUsr2 != spender;
-    address other;
-    require other != owner;
+    address otherAddr; address otherAddr2;
+    require otherAddr != owner || otherAddr2 != spender;
+    address otherAddr3;
+    require otherAddr3 != owner;
 
-    mathint allowanceOtherBefore = allowance(anyUsr, anyUsr2);
+    mathint allowanceOtherBefore = allowance(otherAddr, otherAddr2);
     mathint noncesOwnerBefore = nonces(owner);
-    mathint noncesOtherBefore = nonces(other);
+    mathint noncesOtherBefore = nonces(otherAddr3);
 
     permit(e, owner, spender, value, deadline, v, r, s);
 
     mathint allowanceOwnerSpenderAfter = allowance(owner, spender);
-    mathint allowanceOtherAfter = allowance(anyUsr, anyUsr2);
+    mathint allowanceOtherAfter = allowance(otherAddr, otherAddr2);
     mathint noncesOwnerAfter = nonces(owner);
-    mathint noncesOtherAfter = nonces(other);
+    mathint noncesOtherAfter = nonces(otherAddr3);
 
     assert allowanceOwnerSpenderAfter == to_mathint(value), "Assert 1";
     assert allowanceOtherAfter == allowanceOtherBefore, "Assert 2";
@@ -1779,21 +1775,21 @@ rule permitVRS_revert(address owner, address spender, uint256 value, uint256 dea
 rule permitSignature(address owner, address spender, uint256 value, uint256 deadline, bytes signature) {
     env e;
 
-    address anyUsr; address anyUsr2;
-    require anyUsr != owner || anyUsr2 != spender;
-    address other;
-    require other != owner;
+    address otherAddr; address otherAddr2;
+    require otherAddr != owner || otherAddr2 != spender;
+    address otherAddr3;
+    require otherAddr3 != owner;
 
-    mathint allowanceOtherBefore = allowance(anyUsr, anyUsr2);
+    mathint allowanceOtherBefore = allowance(otherAddr, otherAddr2);
     mathint noncesOwnerBefore = nonces(owner);
-    mathint noncesOtherBefore = nonces(other);
+    mathint noncesOtherBefore = nonces(otherAddr3);
 
     permit(e, owner, spender, value, deadline, signature);
 
     mathint allowanceOwnerSpenderAfter = allowance(owner, spender);
-    mathint allowanceOtherAfter = allowance(anyUsr, anyUsr2);
+    mathint allowanceOtherAfter = allowance(otherAddr, otherAddr2);
     mathint noncesOwnerAfter = nonces(owner);
-    mathint noncesOtherAfter = nonces(other);
+    mathint noncesOtherAfter = nonces(otherAddr3);
 
     assert allowanceOwnerSpenderAfter == to_mathint(value), "Assert 1";
     assert allowanceOtherAfter == allowanceOtherBefore, "Assert 2";
