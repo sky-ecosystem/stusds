@@ -175,7 +175,6 @@ contract YUsdsRateSetter {
         uint256 delta = bps > oldBps ? bps - oldBps : oldBps - bps;
         require(delta <= cfg.step, "YUsdsRateSetter/delta-above-step");
 
-        // Execute the update
         ray = conv.btor(bps);
         require(ray >= RAY, "YUsdsRateSetter/invalid-rate-conv");
     }
