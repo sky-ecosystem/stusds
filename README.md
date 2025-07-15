@@ -7,12 +7,14 @@ Depositors, who in practice provide insurance funds to the system, take on sever
 
 Users can deposit USDS to mint yUSDS up to a defined global cap.
 
-Users can redeem their yUSDS to USDS, as long as there is enough withdrawable USDS, which is determined by:
-* Total deposited funds and accrued yield.
-* Existing stake engine debt.
-* Amount of USDS currently in auction (disregarding the liquidation penalty).
+The yUSDS total value is determined by:
+* Total deposited USDS and accrued yield.
 * Amount of stake engine bad debt, which was written off when concluding past auctions.
 * Past governance slashing operations. 
+
+Although, from that total value, users can only redeem USDS limited by the withdrawable amount, which is determined by the current total value minus:
+* Existing stake engine debt.
+* Amount of USDS currently in auction (disregarding the liquidation penalty).
 
 The yUSDS contract sets the stake engine debt ceiling dynamically, as part of its different actions.
 
