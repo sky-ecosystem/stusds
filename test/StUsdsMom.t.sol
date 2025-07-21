@@ -17,27 +17,27 @@ pragma solidity ^0.8.21;
 
 import "dss-test/DssTest.sol";
 
-import { YUsdsRateSetter } from "src/YUsdsRateSetter.sol";
-import { YUsds } from "src/YUsds.sol";
-import { YUsdsInstance } from "deploy/YUsdsInstance.sol";
-import { YUsdsDeploy } from "deploy/YUsdsDeploy.sol";
-import { YUsdsInit, YUsdsConfig } from "deploy/YUsdsInit.sol";
-import { YUsdsMom } from "src/YUsdsMom.sol";
+import { StUsdsRateSetter } from "src/StUsdsRateSetter.sol";
+import { StUsds } from "src/StUsds.sol";
+import { StUsdsInstance } from "deploy/StUsdsInstance.sol";
+import { StUsdsDeploy } from "deploy/StUsdsDeploy.sol";
+import { StUsdsInit, StUsdsConfig } from "deploy/StUsdsInit.sol";
+import { StUsdsMom } from "src/StUsdsMom.sol";
 import { ClipMock } from "test/mocks/ClipMock.sol";
 
 interface ChiefLike {
     function hat() external view returns (address);
 }
 
-contract YUsdsMomTest is DssTest {
+contract StUsdsMomTest is DssTest {
     address constant CHAINLOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
-    DssInstance     dss;
-    ChiefLike       chief;
-    YUsdsRateSetter rateSetter;
-    YUsds           yusds;
-    YUsdsMom        mom;
-    address         pauseProxy;
+    DssInstance      dss;
+    ChiefLike        chief;
+    StUsdsRateSetter rateSetter;
+    StUsds           stusds;
+    StUsdsMom        mom;
+    address          pauseProxy;
 
     address bud = address(0xb0d);
     address bud2 = address(0xb0d2);
@@ -55,17 +55,17 @@ contract YUsdsMomTest is DssTest {
         chief = ChiefLike(dss.chainlog.getAddress("MCD_ADM"));
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
 
-        YUsdsInstance memory inst = YUsdsDeploy.deploy(address(this), pauseProxy, address(new ClipMock("LSEV2-SKY-A")));
-        yusds = YUsds(inst.yUsds);
-        rateSetter = YUsdsRateSetter(inst.rateSetter);
-        mom = YUsdsMom(inst.mom);
+        StUsdsInstance memory inst = StUsdsDeploy.deploy(address(this), pauseProxy, address(new ClipMock("LSEV2-SKY-A")));
+        stusds = StUsds(inst.stUsds);
+        rateSetter = StUsdsRateSetter(inst.rateSetter);
+        mom = StUsdsMom(inst.mom);
 
         address[] memory buds = new address[](2);
         buds[0] = bud;
         buds[1] = bud2;
 
-        YUsdsConfig memory conf = YUsdsConfig({
-            clip        : address(yusds.clip()),
+        StUsdsConfig memory conf = StUsdsConfig({
+            clip        : address(stusds.clip()),
             ysr         : 1000000001547125957863212448,
             cap         : type(uint256).max,
             line        : type(uint256).max,
@@ -81,45 +81,45 @@ contract YUsdsMomTest is DssTest {
             buds        : buds
         });
         vm.startPrank(pauseProxy);
-        YUsdsInit.init(dss, inst, conf);
+        StUsdsInit.init(dss, inst, conf);
         vm.stopPrank();
     }
 
     function testDeploy() public view {
         // Mom part only
-        assertEq(address(mom.yusds()), address(yusds));
+        assertEq(address(mom.stusds()), address(stusds));
         assertEq(mom.owner(), pauseProxy);
     }
 
     function testInit() public view {
         // Mom part only
-        assertEq(yusds.wards(address(mom)), 1);
+        assertEq(stusds.wards(address(mom)), 1);
         assertEq(rateSetter.wards(address(mom)), 1);
         assertEq(mom.authority(), dss.chainlog.getAddress("MCD_ADM"));
-        assertEq(dss.chainlog.getAddress("YUSDS_MOM"), address(mom));
+        assertEq(dss.chainlog.getAddress("STUSDS_MOM"), address(mom));
     }
 
     function testConstructor() public {
         vm.expectEmit(true, true, true, true);
         emit SetOwner(address(this));
-        YUsdsMom mom2 = new YUsdsMom(address(yusds));
+        StUsdsMom mom2 = new StUsdsMom(address(stusds));
 
-        assertEq(address(mom2.yusds()), address(yusds));
+        assertEq(address(mom2.stusds()), address(stusds));
         assertEq(mom2.owner(), address(this));
     }
 
     function testOnlyOwnerMethods() public {
         checkModifier(
-            address(mom), "YUsdsMom/not-owner", [YUsdsMom.setOwner.selector, YUsdsMom.setAuthority.selector]
+            address(mom), "StUsdsMom/not-owner", [StUsdsMom.setOwner.selector, StUsdsMom.setAuthority.selector]
         );
     }
 
     function testAuthMethods() public {
-        checkModifier(address(mom), "YUsdsMom/not-authorized", [YUsdsMom.haltRateSetter.selector, YUsdsMom.zeroCap.selector, YUsdsMom.zeroLine.selector]);
+        checkModifier(address(mom), "StUsdsMom/not-authorized", [StUsdsMom.haltRateSetter.selector, StUsdsMom.zeroCap.selector, StUsdsMom.zeroLine.selector]);
 
         vm.prank(address(pauseProxy));
         mom.setAuthority(address(0));
-        checkModifier(address(mom), "YUsdsMom/not-authorized", [YUsdsMom.haltRateSetter.selector, YUsdsMom.zeroCap.selector, YUsdsMom.zeroLine.selector]);
+        checkModifier(address(mom), "StUsdsMom/not-authorized", [StUsdsMom.haltRateSetter.selector, StUsdsMom.zeroCap.selector, StUsdsMom.zeroLine.selector]);
     }
 
     function testSetOwner() public {
@@ -176,7 +176,7 @@ contract YUsdsMomTest is DssTest {
         vm.expectEmit(true, true, true, true);
         emit ZeroCap(address(rateSetter));
         mom.zeroCap(address(rateSetter));
-        assertEq(yusds.cap(), 0);
+        assertEq(stusds.cap(), 0);
         assertEq(rateSetter.maxCap(), 0);
     }
 
@@ -193,7 +193,7 @@ contract YUsdsMomTest is DssTest {
         vm.expectEmit(true, true, true, true);
         emit ZeroLine(address(rateSetter));
         mom.zeroLine(address(rateSetter));
-        assertEq(yusds.line(), 0);
+        assertEq(stusds.line(), 0);
         assertEq(rateSetter.maxLine(), 0);
     }
 

@@ -22,45 +22,45 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 
 import "dss-interfaces/Interfaces.sol";
 
-import { YUsds } from "src/YUsds.sol";
-import { YUsdsRateSetter } from "src/YUsdsRateSetter.sol";
-import { YUsdsMom } from "src/YUsdsMom.sol";
-import { YUsdsInstance } from "./YUsdsInstance.sol";
+import { StUsds } from "src/StUsds.sol";
+import { StUsdsRateSetter } from "src/StUsdsRateSetter.sol";
+import { StUsdsMom } from "src/StUsdsMom.sol";
+import { StUsdsInstance } from "./StUsdsInstance.sol";
 
 interface SPBEAMLike {
     function conv() external view returns (address);
 }
 
-library YUsdsDeploy {
+library StUsdsDeploy {
     function deploy(
         address deployer,
         address owner,
         address clip
-    ) internal returns (YUsdsInstance memory instance) {
+    ) internal returns (StUsdsInstance memory instance) {
         ChainlogAbstract chainlog = ChainlogAbstract(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
 
-        address _yUsdsImp = address(new YUsds(
+        address _stUsdsImp = address(new StUsds(
                                             chainlog.getAddress("USDS_JOIN"),
                                             chainlog.getAddress("MCD_JUG"),
                                             clip,
                                             chainlog.getAddress("MCD_VOW")
                                         )
                                     );
-        address _yUsds = address(new ERC1967Proxy(_yUsdsImp, abi.encodeCall(YUsds.initialize, ())));
-        ScriptTools.switchOwner(_yUsds, deployer, owner);
+        address _stUsds = address(new ERC1967Proxy(_stUsdsImp, abi.encodeCall(StUsds.initialize, ())));
+        ScriptTools.switchOwner(_stUsds, deployer, owner);
 
-        address _rateSetter = address(new YUsdsRateSetter(
-            _yUsds,
+        address _rateSetter = address(new StUsdsRateSetter(
+            _stUsds,
             SPBEAMLike(chainlog.getAddress("MCD_SPBEAM")).conv()
         ));
         ScriptTools.switchOwner(_rateSetter, deployer, owner);
 
-        YUsdsMom _mom = new YUsdsMom(_yUsds);
+        StUsdsMom _mom = new StUsdsMom(_stUsds);
         _mom.setOwner(owner);
 
-        instance.yUsds      = _yUsds;
-        instance.yUsdsImp   = _yUsdsImp;
-        instance.rateSetter = _rateSetter;
-        instance.mom        = address(_mom);
+        instance.stUsds      = _stUsds;
+        instance.stUsdsImp   = _stUsdsImp;
+        instance.rateSetter  = _rateSetter;
+        instance.mom         = address(_mom);
     }
 }

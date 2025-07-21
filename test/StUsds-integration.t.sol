@@ -22,11 +22,11 @@ import "dss-interfaces/Interfaces.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Upgrades, Options } from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
-import { YUsds, UUPSUpgradeable, Initializable, ERC1967Utils } from "src/YUsds.sol";
+import { StUsds, UUPSUpgradeable, Initializable, ERC1967Utils } from "src/StUsds.sol";
 
-import { YUsdsInstance } from "deploy/YUsdsInstance.sol";
-import { YUsdsDeploy } from "deploy/YUsdsDeploy.sol";
-import { YUsdsInit, YUsdsConfig } from "deploy/YUsdsInit.sol";
+import { StUsdsInstance } from "deploy/StUsdsInstance.sol";
+import { StUsdsDeploy } from "deploy/StUsdsDeploy.sol";
+import { StUsdsInit, StUsdsConfig } from "deploy/StUsdsInit.sol";
 
 import { ClipMock } from "test/mocks/ClipMock.sol";
 
@@ -35,7 +35,7 @@ interface UsdsLike {
     function approve(address, uint256) external;
 }
 
-contract YUsds2 is UUPSUpgradeable {
+contract StUsds2 is UUPSUpgradeable {
     // Admin
     mapping (address => uint256) public wards;
     // ERC20
@@ -53,7 +53,7 @@ contract YUsds2 is UUPSUpgradeable {
     event UpgradedTo(string version);
 
     modifier auth {
-        require(wards[msg.sender] == 1, "YUsds/not-authorized");
+        require(wards[msg.sender] == 1, "StUsds/not-authorized");
         _;
     }
 
@@ -72,7 +72,7 @@ contract YUsds2 is UUPSUpgradeable {
     }
 }
 
-contract YUsdsIntegrationTest is TokenFuzzChecks {
+contract StUsdsIntegrationTest is TokenFuzzChecks {
 
     using GodMode for *;
 
@@ -84,7 +84,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     UsdsLike usds;
     ClipMock clip;
 
-    YUsds token;
+    StUsds token;
     bool validate;
 
     event Cut(uint256 assets, uint256 oldChi, uint256 newChi);
@@ -106,9 +106,9 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         usdsJoin = LOG.getAddress("USDS_JOIN");
 
         clip = new ClipMock("LSEV2-SKY-B");
-        YUsdsInstance memory inst = YUsdsDeploy.deploy(address(this), pauseProxy, address(clip));
-        token = YUsds(inst.yUsds);
-        YUsdsConfig memory conf = YUsdsConfig({
+        StUsdsInstance memory inst = StUsdsDeploy.deploy(address(this), pauseProxy, address(clip));
+        token = StUsds(inst.stUsds);
+        StUsdsConfig memory conf = StUsdsConfig({
             clip: address(clip),
             ysr: 1000000001547125957863212448,
             cap: type(uint256).max,
@@ -127,7 +127,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         vm.warp(block.timestamp + 10);
         vm.startPrank(pauseProxy);
         dss.vat.file(token.ilk(), "line", 0);
-        YUsdsInit.init(dss, inst, conf);
+        StUsdsInit.init(dss, inst, conf);
         vm.stopPrank();
         assertEq(token.chi(), RAY);
         assertEq(token.rho(), block.timestamp);
@@ -135,7 +135,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(dss.vat.can(address(token), usdsJoin), 1);
         assertEq(token.wards(pauseProxy), 1);
         assertEq(token.version(), "1");
-        assertEq(token.getImplementation(), inst.yUsdsImp);
+        assertEq(token.getImplementation(), inst.stUsdsImp);
 
         deal(address(usds), address(this), 200 ether);
         usds.approve(address(token), type(uint256).max);
@@ -201,22 +201,22 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
         address proxy = Upgrades.deployUUPSProxy(
-            "out/YUsds.sol/YUsds.json",
-            abi.encodeCall(YUsds.initialize, ()),
+            "out/StUsds.sol/StUsds.json",
+            abi.encodeCall(StUsds.initialize, ()),
             opts
         );
-        assertEq(YUsds(proxy).version(), "1");
-        assertEq(YUsds(proxy).wards(address(this)), 1);
+        assertEq(StUsds(proxy).version(), "1");
+        assertEq(StUsds(proxy).wards(address(this)), 1);
     }
 
     function testUpgrade() public {
         address implementation1 = token.getImplementation();
 
-        address newImpl = address(new YUsds2());
+        address newImpl = address(new StUsds2());
         vm.startPrank(pauseProxy);
         vm.expectEmit(true, true, true, true);
         emit UpgradedTo("2");
-        token.upgradeToAndCall(newImpl, abi.encodeCall(YUsds2.reinitialize, ()));
+        token.upgradeToAndCall(newImpl, abi.encodeCall(StUsds2.reinitialize, ()));
         vm.stopPrank();
 
         address implementation2 = token.getImplementation();
@@ -233,7 +233,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         if (!validate) {
             opts.unsafeSkipAllChecks = true;
         } else {
-            opts.referenceContract = "out/YUsds.sol/YUsds.json";
+            opts.referenceContract = "out/StUsds.sol/StUsds.json";
             opts.unsafeAllow = 'constructor';
         }
 
@@ -242,8 +242,8 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         emit UpgradedTo("2");
         Upgrades.upgradeProxy(
             address(token),
-            "out/YUsds-integration.t.sol/YUsds2.json",
-            abi.encodeCall(YUsds2.reinitialize, ()),
+            "out/StUsds-integration.t.sol/StUsds2.json",
+            abi.encodeCall(StUsds2.reinitialize, ()),
             opts
         );
         vm.stopPrank();
@@ -255,9 +255,9 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testUpgradeUnauthed() public {
-        address newImpl = address(new YUsds2());
-        vm.expectRevert("YUsds/not-authorized");
-        vm.prank(address(0x123)); token.upgradeToAndCall(newImpl, abi.encodeCall(YUsds2.reinitialize, ()));
+        address newImpl = address(new StUsds2());
+        vm.expectRevert("StUsds/not-authorized");
+        vm.prank(address(0x123)); token.upgradeToAndCall(newImpl, abi.encodeCall(StUsds2.reinitialize, ()));
     }
 
     function testInitializeAgain() public {
@@ -268,12 +268,12 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     function testInitializeDirectly() public {
         address implementation = token.getImplementation();
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        YUsds(implementation).initialize();
+        StUsds(implementation).initialize();
     }
 
     function testConstructor() public {
         address clip2 = address(new ClipMock("LSEV2-SKY-B"));
-        address imp = address(new YUsds(
+        address imp = address(new StUsds(
                                     usdsJoin,
                                     LOG.getAddress("MCD_JUG"),
                                     clip2,
@@ -282,9 +282,9 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
                                 );
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
-        YUsds token2 = YUsds(address(new ERC1967Proxy(imp, abi.encodeCall(YUsds.initialize, ()))));
-        assertEq(token2.name(), "Yield USDS");
-        assertEq(token2.symbol(), "yUSDS");
+        StUsds token2 = StUsds(address(new ERC1967Proxy(imp, abi.encodeCall(StUsds.initialize, ()))));
+        assertEq(token2.name(), "Staked USDS");
+        assertEq(token2.symbol(), "stUSDS");
         assertEq(token2.version(), "1");
         assertEq(token2.decimals(), 18);
         assertEq(token2.chi(), RAY);
@@ -303,26 +303,26 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testAuth() public {
-        checkAuth(address(token), "YUsds");
+        checkAuth(address(token), "StUsds");
     }
 
     function testFile() public {
-        checkFileUint(address(token), "YUsds", ["ysr"]);
+        checkFileUint(address(token), "StUsds", ["ysr"]);
 
-        vm.expectRevert("YUsds/wrong-ysr-value");
+        vm.expectRevert("StUsds/wrong-ysr-value");
         vm.prank(pauseProxy); token.file("ysr", RAY - 1);
 
         vm.warp(block.timestamp + 1);
-        vm.expectRevert("YUsds/chi-not-up-to-date");
+        vm.expectRevert("StUsds/chi-not-up-to-date");
         vm.prank(pauseProxy); token.file("ysr", RAY);
     }
 
     function testERC20() public {
-        checkBulkERC20(address(token), "YUsds", "Yield USDS", "yUSDS", "1", 18);
+        checkBulkERC20(address(token), "StUsds", "Staked USDS", "stUSDS", "1", 18);
     }
 
     function testPermit() public {
-        checkBulkPermit(address(token), "YUsds");
+        checkBulkPermit(address(token), "StUsds");
     }
 
     function testConversion() public {
@@ -363,7 +363,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         vm.warp(block.timestamp + 100 days);
         (,,, line1,) = dss.vat.ilks(token.ilk());
         uint256 supply = token.totalSupply();
-        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 stusdsUsds = usds.balanceOf(address(token));
         uint256 originalChi = token.chi();
         uint256 expectedChi1 = _rpow(token.ysr(), block.timestamp - token.rho()) * token.chi() / RAY;
         diff1 = supply * expectedChi1 / RAY - supply * originalChi / RAY;
@@ -372,7 +372,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.drip(), expectedChi1);
         assertEq(token.chi(), expectedChi1);
         assertGt(diff1, 0);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1);
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1);
         (,,, line2,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line2, line1 + diff1 * RAY, 0.00000000000000001e45);
         vm.warp(block.timestamp + 100 days);
@@ -384,7 +384,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.drip(), expectedChi2);
         assertGt(expectedChi2, expectedChi1);
         assertGt(diff2, 0);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + diff2);
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + diff2);
         (,,, line3,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line3, line2 + diff2 * RAY - 1e45, 0.00000000000000001e45); // Reduced by ongoing auction debt
         vm.expectEmit();
@@ -399,7 +399,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.drip(), expectedChi3);
         assertGt(expectedChi3, expectedChi2);
         assertGt(diff3 * RAY, 2e45);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + diff2 + diff3);
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + diff2 + diff3);
         (,,, line4,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line4, line3 + 2e45, 0.00000000000000001e45); // Limited by line
         vm.warp(block.timestamp - 1);
@@ -410,7 +410,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
     function testDeposit() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 stusdsUsds = usds.balanceOf(address(token));
 
         (,,, line1,) = dss.vat.ilks(token.ilk());
 
@@ -432,10 +432,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie);
-        assertLe(token.totalAssets(), yusdsUsds + diff1 + 1e18);    // May be slightly less due to rounding error
-        assertGe(token.totalAssets(), yusdsUsds + diff1 + 1e18 - 1);
+        assertLe(token.totalAssets(), stusdsUsds + diff1 + 1e18);    // May be slightly less due to rounding error
+        assertGe(token.totalAssets(), stusdsUsds + diff1 + 1e18 - 1);
         assertEq(token.balanceOf(address(0xBEEF)), pie);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + _divup(pie * chiLast, RAY));
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + _divup(pie * chiLast, RAY));
         (,,, line2,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line2, line1 + diff1 * RAY + 1e45, 0.00000000000000001e45);
 
@@ -461,7 +461,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
     function testReferredDeposit() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 stusdsUsds = usds.balanceOf(address(token));
 
         chiFirst = token.chi();
         chiLast = _rpow(token.ysr(), 100 days) * chiFirst / RAY;
@@ -483,22 +483,22 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie);
-        assertLe(token.totalAssets(), yusdsUsds + diff1 + 1e18);    // May be slightly less due to rounding error
-        assertGe(token.totalAssets(), yusdsUsds + diff1 + 1e18 - 1);
+        assertLe(token.totalAssets(), stusdsUsds + diff1 + 1e18);    // May be slightly less due to rounding error
+        assertGe(token.totalAssets(), stusdsUsds + diff1 + 1e18 - 1);
         assertEq(token.balanceOf(address(0xBEEF)), pie);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + _divup(pie * chiLast, RAY));
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + _divup(pie * chiLast, RAY));
     }
 
     function testDepositBadAddress() public {
-        vm.expectRevert("YUsds/invalid-address");
+        vm.expectRevert("StUsds/invalid-address");
         token.deposit(1e18, address(0));
-        vm.expectRevert("YUsds/invalid-address");
+        vm.expectRevert("StUsds/invalid-address");
         token.deposit(1e18, address(token));
     }
 
     function testMint() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 stusdsUsds = usds.balanceOf(address(token));
 
         (,,, line1,) = dss.vat.ilks(token.ilk());
 
@@ -520,10 +520,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie);
-        assertLe(token.totalAssets(), yusdsUsds + diff1 + 1e18);    // May be slightly less due to rounding error
-        assertGe(token.totalAssets(), yusdsUsds + diff1 + 1e18 - 1);
+        assertLe(token.totalAssets(), stusdsUsds + diff1 + 1e18);    // May be slightly less due to rounding error
+        assertGe(token.totalAssets(), stusdsUsds + diff1 + 1e18 - 1);
         assertEq(token.balanceOf(address(0xBEEF)), pie);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + _divup(pie * chiLast, RAY));
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + _divup(pie * chiLast, RAY));
         (,,, line2,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line2, line1 + diff1 * RAY + 1e45, 0.00000000000000001e45);
 
@@ -549,7 +549,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
     function testReferredMint() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 stusdsUsds = usds.balanceOf(address(token));
 
         chiFirst = token.chi();
         chiLast = _rpow(token.ysr(), 100 days) * chiFirst / RAY;
@@ -571,22 +571,22 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiLast);
         assertEq(token.totalSupply(), prevSupply + pie);
-        assertLe(token.totalAssets(), yusdsUsds + diff1 + 1e18);    // May be slightly less due to rounding error
-        assertGe(token.totalAssets(), yusdsUsds + diff1 + 1e18 - 1);
+        assertLe(token.totalAssets(), stusdsUsds + diff1 + 1e18);    // May be slightly less due to rounding error
+        assertGe(token.totalAssets(), stusdsUsds + diff1 + 1e18 - 1);
         assertEq(token.balanceOf(address(0xBEEF)), pie);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + _divup(pie * chiLast, RAY));
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + _divup(pie * chiLast, RAY));
     }
 
     function testMintBadAddress() public {
-        vm.expectRevert("YUsds/invalid-address");
+        vm.expectRevert("StUsds/invalid-address");
         token.mint(1e18, address(0));
-        vm.expectRevert("YUsds/invalid-address");
+        vm.expectRevert("StUsds/invalid-address");
         token.mint(1e18, address(token));
     }
 
     function testRedeem() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 stusdsUsds = usds.balanceOf(address(token));
 
         chiFirst = token.chi();
         chiMiddle = _rpow(token.ysr(), 100 days) * chiFirst / RAY;
@@ -601,7 +601,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiMiddle);
         diff1 = prevSupply * chiMiddle / RAY - prevSupply * chiFirst / RAY;
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + _divup(pie * chiMiddle, RAY));
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + _divup(pie * chiMiddle, RAY));
 
         (,,, line1,) = dss.vat.ilks(token.ilk());
 
@@ -620,7 +620,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.totalSupply(), prevSupply + pie - pie * 0.1e18 / WAD);
         assertEq(token.balanceOf(address(0xBEEF)), pie - pie * 0.1e18 / WAD);
         assertEq(usds.balanceOf(address(0xAAA)), (pie * 0.1e18 / WAD) * chiLast / RAY);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + diff2 + 10e18 - (pie * 0.1e18 / WAD) * chiLast / RAY);
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + diff2 + 10e18 - (pie * 0.1e18 / WAD) * chiLast / RAY);
         (,,, line2,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line2, line1 + diff2 * RAY - (pie * 0.1e18 / WAD) * chiLast, 0.00000000000000001e45);
 
@@ -648,12 +648,12 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.totalSupply(), prevSupply);
         assertEq(token.balanceOf(address(0xBEEF)), 0);
         assertEq(usds.balanceOf(address(0xAAA)), pie * chiLast / RAY);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + diff2 + 10e18 - pie * chiLast / RAY);
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + diff2 + 10e18 - pie * chiLast / RAY);
     }
 
     function testWithdraw() public {
         uint256 prevSupply = token.totalSupply();
-        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 stusdsUsds = usds.balanceOf(address(token));
 
         chiFirst = token.chi();
         chiMiddle = _rpow(token.ysr(), 100 days) * chiFirst / RAY;
@@ -668,7 +668,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         assertEq(token.chi(), chiMiddle);
         diff1 = prevSupply * chiMiddle / RAY - prevSupply * chiFirst / RAY;
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + 10e18);
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + 10e18);
 
         (,,, line1,) = dss.vat.ilks(token.ilk());
 
@@ -688,7 +688,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.totalSupply(), prevSupply + pie - shares);
         assertEq(token.balanceOf(address(0xBEEF)), pie - shares);
         assertEq(usds.balanceOf(address(0xAAA)), 2e18);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + diff2 + 10e18 - 2e18);
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + diff2 + 10e18 - 2e18);
         (,,, line2,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line2, line1 + diff2 * RAY - 2e45, 0.00000000000000001e45);
 
@@ -717,7 +717,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.totalSupply(), prevSupply);
         assertEq(token.balanceOf(address(0xBEEF)), 0);
         assertEq(usds.balanceOf(address(0xAAA)), 5e18 + rAssets);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + diff2 + 10e18 - 5e18 - rAssets);
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + diff2 + 10e18 - 5e18 - rAssets);
     }
 
     function testSharesEstimatesMatch() public {
@@ -748,7 +748,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         uint256 amount1,
         uint256 amount2
     ) public {
-        checkBulkERC20Fuzz(address(token), "YUsds", from, to, amount1, amount2);
+        checkBulkERC20Fuzz(address(token), "StUsds", from, to, amount1, amount2);
     }
 
     function testPermitFuzz(
@@ -758,7 +758,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         uint256 deadline,
         uint256 nonce
     ) public {
-        checkBulkPermitFuzz(address(token), "YUsds", privKey, to, amount, deadline, nonce);
+        checkBulkPermitFuzz(address(token), "StUsds", privKey, to, amount, deadline, nonce);
     }
 
     function testDrip(uint256 amount, uint256 warp, uint256 warp2, uint256 warp3, uint256 due, uint256 line) public {
@@ -770,7 +770,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         vm.warp(block.timestamp + warp);
         (,,, line1,) = dss.vat.ilks(token.ilk());
         uint256 supply = token.totalSupply();
-        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 stusdsUsds = usds.balanceOf(address(token));
         uint256 originalChi = token.chi();
         uint256 expectedChi1 = _rpow(token.ysr(), block.timestamp - token.rho()) * token.chi() / RAY;
         diff1 = supply * expectedChi1 / RAY - supply * originalChi / RAY;
@@ -779,7 +779,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.drip(), expectedChi1);
         assertEq(token.chi(), expectedChi1);
         assertGt(diff1, 0);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1);
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1);
         (,,, line2,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line2, line1 + diff1 * RAY, 0.00000000000000001e45);
         vm.warp(block.timestamp + warp2);
@@ -792,7 +792,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.drip(), expectedChi2);
         assertGt(expectedChi2, expectedChi1);
         assertGt(diff2, 0);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + diff2);
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + diff2);
         (,,, line3,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line3, line2 + diff2 * RAY - due, 0.00000000000000001e45); // Reduced by ongoing auction debt
         vm.expectEmit();
@@ -808,7 +808,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.drip(), expectedChi3);
         assertGt(expectedChi3, expectedChi2);
         assertGe(diff3 * RAY, line);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + diff2 + diff3);
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + diff2 + diff3);
         (,,, line4,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line4, line3 + line, 0.00000000000000001e45); // Limited by line
         vm.warp(block.timestamp - 1);
@@ -837,7 +837,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         deal(address(usds), address(this), 400 ether);
 
         uint256 prevSupply = token.totalSupply();
-        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 stusdsUsds = usds.balanceOf(address(token));
 
         (,,, line1,) = dss.vat.ilks(token.ilk());
 
@@ -863,7 +863,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
             assertEq(ashares, shares);
             assertEq(token.totalSupply(), prevSupply + shares);
             assertEq(token.balanceOf(to), shares);
-            assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + amount);
+            assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + amount);
 
             (,,, line2,) = dss.vat.ilks(token.ilk());
             assertApproxEqAbs(line2, line1 + (diff1 + amount) * RAY, 0.00000000000000001e45);
@@ -889,7 +889,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
             (,,, line5,) = dss.vat.ilks(token.ilk());
             assertApproxEqAbs(line5, line4 + line, 0.00000000000000001e45); // Limited by line
         } else {
-            vm.expectRevert("YUsds/invalid-address");
+            vm.expectRevert("StUsds/invalid-address");
             token.deposit(amount, to);
         }
     }
@@ -916,7 +916,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         vm.warp(block.timestamp + warp);
 
         uint256 prevSupply = token.totalSupply();
-        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 stusdsUsds = usds.balanceOf(address(token));
 
         (,,, line1,) = dss.vat.ilks(token.ilk());
 
@@ -942,7 +942,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
             assertEq(aassets, assets);
             assertEq(token.totalSupply(), prevSupply + shares);
             assertEq(token.balanceOf(to), shares);
-            assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 + _divup(shares * chiLast, RAY));
+            assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 + _divup(shares * chiLast, RAY));
 
             (,,, line2,) = dss.vat.ilks(token.ilk());
             assertApproxEqAbs(line2, line1 + diff1 * RAY + shares * chiLast, 0.00000000000000001e45);
@@ -967,7 +967,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
             (,,, line5,) = dss.vat.ilks(token.ilk());
             assertApproxEqAbs(line5, line4 + line, 0.00000000000000001e45); // Limited by line
         } else {
-            vm.expectRevert("YUsds/invalid-address");
+            vm.expectRevert("StUsds/invalid-address");
             token.mint(shares, to);
         }
     }
@@ -1188,10 +1188,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(maxDeposit, _subcap(token.cap(), token.totalAssets()));
         assertEq(maxMint, _subcap(token.cap(), token.totalAssets()) * RAY / chiLast);
 
-        vm.expectRevert("YUsds/mint-over-supply-cap");
+        vm.expectRevert("StUsds/mint-over-supply-cap");
         token.deposit(maxDeposit + 1, address(this));
 
-        vm.expectRevert("YUsds/mint-over-supply-cap");
+        vm.expectRevert("StUsds/mint-over-supply-cap");
         token.mint(maxMint + 1, address(this));
 
         uint256 id = vm.snapshot();
@@ -1242,10 +1242,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(maxWithdraw1, token.convertToAssets(token.balanceOf(address(0x222))));
         assertEq(maxRedeem1, token.balanceOf(address(0x222)));
 
-        vm.expectRevert("YUsds/insufficient-balance");
+        vm.expectRevert("StUsds/insufficient-balance");
         vm.prank(address(0x222)); token.withdraw(maxWithdraw1 + 1, address(0x222), address(0x222));
 
-        vm.expectRevert("YUsds/insufficient-balance");
+        vm.expectRevert("StUsds/insufficient-balance");
         vm.prank(address(0x222)); token.redeem(maxRedeem1 + 1, address(0x222), address(0x222));
 
         uint256 id = vm.snapshot();
@@ -1278,10 +1278,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertLt(maxWithdraw2, maxWithdraw1);
         assertLt(maxRedeem2, maxRedeem1);
 
-        vm.expectRevert("YUsds/insufficient-unused-funds");
+        vm.expectRevert("StUsds/insufficient-unused-funds");
         vm.prank(address(0x222)); token.withdraw(maxWithdraw2 + 1, address(0x222), address(0x222));
 
-        vm.expectRevert("YUsds/insufficient-unused-funds");
+        vm.expectRevert("StUsds/insufficient-unused-funds");
         vm.prank(address(0x222)); token.redeem(maxRedeem2 + 1, address(0x222), address(0x222));
 
         id = vm.snapshot();
@@ -1309,7 +1309,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         burnAmount = bound(burnAmount, pie + 1, type(uint256).max / token.chi());
 
         token.deposit(mintAmount, to);
-        vm.expectRevert("YUsds/insufficient-balance");
+        vm.expectRevert("StUsds/insufficient-balance");
         token.redeem(burnAmount, to, to);
     }
 
@@ -1320,10 +1320,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         (,,, line1,) = dss.vat.ilks(token.ilk());
         uint256 supply = token.totalSupply();
-        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 stusdsUsds = usds.balanceOf(address(token));
         uint256 totalAssets = token.totalAssets();
         uint256 vatDaiVow = dss.vat.dai(address(dss.vow));
-        assertLe(totalAssets, yusdsUsds);
+        assertLe(totalAssets, stusdsUsds);
         chiFirst = token.chi();
         uint256 chiPrevDeduction = _rpow(token.ysr(), block.timestamp + 100 days - token.rho()) * token.chi() / RAY;
         diff1 = supply * chiPrevDeduction / RAY - supply * chiFirst / RAY;
@@ -1337,7 +1337,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         (,,, line2,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line2, line1 + diff1 * RAY - 1_000e45, 0.00000000000000001e45);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 - 1_000e18);
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 - 1_000e18);
         assertEq(token.chi(), chiLast);
         assertEq(dss.vat.dai(address(dss.vow)), vatDaiVow + 1_000e45);
 
@@ -1433,11 +1433,11 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         vm.expectRevert(stdError.divisionError);
         token.deposit(50e18, address(this));
-        vm.expectRevert("YUsds/assets-zero");
+        vm.expectRevert("StUsds/assets-zero");
         token.mint(50e18, address(this));
         vm.expectRevert(stdError.divisionError);
         vm.prank(address(0x222)); token.withdraw(1, address(this), address(this));
-        vm.expectRevert("YUsds/assets-zero");
+        vm.expectRevert("StUsds/assets-zero");
         vm.prank(address(0x222)); token.redeem(1, address(this), address(this));
     }
 
@@ -1467,7 +1467,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         vm.expectRevert(stdError.divisionError);
         token.deposit(50e18, address(this));
-        vm.expectRevert("YUsds/assets-zero");
+        vm.expectRevert("StUsds/assets-zero");
         token.mint(50e18, address(this));
     }
 
@@ -1475,7 +1475,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token.totalAssets(), 100e18);
 
         // Proving that even without assets second cut call won't fail.
-        // This is important to make sure any auction shouldn't revert even if yusds gets to irreversible state
+        // This is important to make sure any auction shouldn't revert even if stusds gets to irreversible state
         vm.expectEmit();
         emit Cut(100e18, 1e27, 0);
         vm.prank(pauseProxy); token.cut(100e18 * 1e27);
@@ -1504,10 +1504,10 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         (,,, line1,) = dss.vat.ilks(token.ilk());
         uint256 supply = token.totalSupply();
-        uint256 yusdsUsds = usds.balanceOf(address(token));
+        uint256 stusdsUsds = usds.balanceOf(address(token));
         uint256 totalAssets = token.totalAssets();
         uint256 vatDaiVow = dss.vat.dai(address(dss.vow));
-        assertLe(totalAssets, yusdsUsds);
+        assertLe(totalAssets, stusdsUsds);
         chiFirst = token.chi();
         uint256 chiPrevDeduction = _rpow(token.ysr(), block.timestamp + warp - token.rho()) * token.chi() / RAY;
         diff1 = supply * chiPrevDeduction / RAY - supply * chiFirst / RAY;
@@ -1521,7 +1521,7 @@ contract YUsdsIntegrationTest is TokenFuzzChecks {
 
         (,,, line2,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line2, line1 + diff1 * RAY - assets * RAY, 0.00000000000000001e45);
-        assertEq(usds.balanceOf(address(token)), yusdsUsds + diff1 - assets);
+        assertEq(usds.balanceOf(address(token)), stusdsUsds + diff1 - assets);
         assertEq(token.chi(), chiLast);
         assertEq(dss.vat.dai(address(dss.vow)), vatDaiVow + assets * RAY);
 

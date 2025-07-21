@@ -17,9 +17,9 @@
 pragma solidity >=0.8.0;
 
 import { DssInstance } from "dss-test/MCD.sol";
-import { YUsdsInstance } from "./YUsdsInstance.sol";
+import { StUsdsInstance } from "./StUsdsInstance.sol";
 
-interface YUsdsLike {
+interface StUsdsLike {
     function version() external view returns (string memory);
     function getImplementation() external view returns (address);
     function usdsJoin() external view returns (address);
@@ -38,7 +38,7 @@ interface AutoLineLike {
 
 interface RateSetterLike {
     function jug() external view returns (address);
-    function yusds() external view returns (address);
+    function stusds() external view returns (address);
     function conv() external view returns (address);
     function file(bytes32, uint256) external;
     function file(bytes32, bytes32, uint256) external;
@@ -50,12 +50,12 @@ interface SPBEAMLike {
     function conv() external view returns (address);
 }
 
-interface YUsdsMomLike {
-    function yusds() external view returns (address);
+interface StUsdsMomLike {
+    function stusds() external view returns (address);
     function setAuthority(address) external;
 }
 
-struct YUsdsConfig {
+struct StUsdsConfig {
     address clip;
     uint256 ysr;
     uint256 cap;
@@ -74,45 +74,45 @@ struct YUsdsConfig {
     address[] buds;
 }
 
-library YUsdsInit {
+library StUsdsInit {
 
     uint256 constant internal RAY                   = 10**27;
     uint256 constant internal RATES_ONE_HUNDRED_PCT = 1000000021979553151239153027;
 
     function init(
-        DssInstance   memory dss,
-        YUsdsInstance memory instance,
-        YUsdsConfig   memory cfg
+        DssInstance    memory dss,
+        StUsdsInstance memory instance,
+        StUsdsConfig   memory cfg
     ) internal {
-        require(keccak256(abi.encodePacked(YUsdsLike(instance.yUsds).version())) == keccak256(abi.encodePacked("1")), "YUsdsInit/version-does-not-match");
-        require(YUsdsLike(instance.yUsds).getImplementation() == instance.yUsdsImp, "YUsdsInit/imp-does-not-match");
+        require(keccak256(abi.encodePacked(StUsdsLike(instance.stUsds).version())) == keccak256(abi.encodePacked("1")), "StUsdsInit/version-does-not-match");
+        require(StUsdsLike(instance.stUsds).getImplementation() == instance.stUsdsImp, "StUsdsInit/imp-does-not-match");
 
-        require(YUsdsLike(instance.yUsds).usdsJoin() == dss.chainlog.getAddress("USDS_JOIN"), "YUsdsInit/usdsJoin-does-not-match");
-        require(YUsdsLike(instance.yUsds).jug()      == address(dss.jug),                     "YUsdsInit/jug-does-not-match");
-        require(YUsdsLike(instance.yUsds).clip()     == cfg.clip,                             "YUsdsInit/clip-does-not-match");
-        require(YUsdsLike(instance.yUsds).vow()      == address(dss.vow),                     "YUsdsInit/vow-does-not-match");
+        require(StUsdsLike(instance.stUsds).usdsJoin() == dss.chainlog.getAddress("USDS_JOIN"), "StUsdsInit/usdsJoin-does-not-match");
+        require(StUsdsLike(instance.stUsds).jug()      == address(dss.jug),                     "StUsdsInit/jug-does-not-match");
+        require(StUsdsLike(instance.stUsds).clip()     == cfg.clip,                             "StUsdsInit/clip-does-not-match");
+        require(StUsdsLike(instance.stUsds).vow()      == address(dss.vow),                     "StUsdsInit/vow-does-not-match");
 
-        require(cfg.ysr >= RAY && cfg.ysr <= RATES_ONE_HUNDRED_PCT, "YUsdsInit/ysr-out-of-boundaries");
+        require(cfg.ysr >= RAY && cfg.ysr <= RATES_ONE_HUNDRED_PCT, "StUsdsInit/ysr-out-of-boundaries");
 
-        require(RateSetterLike(instance.rateSetter).yusds() == instance.yUsds, "YUsdsInit/yusds-does-not-match");
-        require(RateSetterLike(instance.rateSetter).conv()  == SPBEAMLike(dss.chainlog.getAddress("MCD_SPBEAM")).conv(), "YUsdsInit/conv-does-not-match");
+        require(RateSetterLike(instance.rateSetter).stusds() == instance.stUsds, "StUsdsInit/stusds-does-not-match");
+        require(RateSetterLike(instance.rateSetter).conv() == SPBEAMLike(dss.chainlog.getAddress("MCD_SPBEAM")).conv(), "StUsdsInit/conv-does-not-match");
 
-        require(YUsdsMomLike(instance.mom).yusds() == instance.yUsds, "YUsdsInit/yusds-does-not-match");
+        require(StUsdsMomLike(instance.mom).stusds() == instance.stUsds, "StUsdsInit/stusds-does-not-match");
 
-        dss.vat.rely(instance.yUsds);
+        dss.vat.rely(instance.stUsds);
 
-        bytes32 ilk = YUsdsLike(instance.yUsds).ilk();
+        bytes32 ilk = StUsdsLike(instance.stUsds).ilk();
 
         AutoLineLike(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).remIlk(ilk);
 
-        YUsdsLike(instance.yUsds).drip();
-        YUsdsLike(instance.yUsds).file("ysr",  cfg.ysr);
-        YUsdsLike(instance.yUsds).file("cap",  cfg.cap);
-        YUsdsLike(instance.yUsds).file("line", cfg.line);
+        StUsdsLike(instance.stUsds).drip();
+        StUsdsLike(instance.stUsds).file("ysr",  cfg.ysr);
+        StUsdsLike(instance.stUsds).file("cap",  cfg.cap);
+        StUsdsLike(instance.stUsds).file("line", cfg.line);
 
         // RateSetter Configuration
         dss.jug.rely(instance.rateSetter);
-        YUsdsLike(instance.yUsds).rely(instance.rateSetter);
+        StUsdsLike(instance.stUsds).rely(instance.rateSetter);
 
         RateSetterLike(instance.rateSetter).file("tau",     cfg.tau);
         RateSetterLike(instance.rateSetter).file("maxLine", cfg.maxLine);
@@ -132,13 +132,13 @@ library YUsdsInit {
         }
 
         // Mom Configuration
-        YUsdsLike(instance.yUsds).rely(instance.mom);
+        StUsdsLike(instance.stUsds).rely(instance.mom);
         RateSetterLike(instance.rateSetter).rely(instance.mom);
-        YUsdsMomLike(instance.mom).setAuthority(dss.chainlog.getAddress("MCD_ADM"));
+        StUsdsMomLike(instance.mom).setAuthority(dss.chainlog.getAddress("MCD_ADM"));
 
-        dss.chainlog.setAddress("YUSDS",             instance.yUsds);
-        dss.chainlog.setAddress("YUSDS_IMP",         instance.yUsdsImp);
-        dss.chainlog.setAddress("YUSDS_RATE_SETTER", instance.rateSetter);
-        dss.chainlog.setAddress("YUSDS_MOM",         instance.mom);
+        dss.chainlog.setAddress("STUSDS",             instance.stUsds);
+        dss.chainlog.setAddress("STUSDS_IMP",         instance.stUsdsImp);
+        dss.chainlog.setAddress("STUSDS_RATE_SETTER", instance.rateSetter);
+        dss.chainlog.setAddress("STUSDS_MOM",         instance.mom);
     }
 }

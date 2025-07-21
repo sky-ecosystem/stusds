@@ -22,7 +22,7 @@ interface JugLike {
     function drip(bytes32) external;
 }
 
-interface YUSDSLike {
+interface StUsdsLike {
     function jug() external view returns (address);
     function ilk() external view returns (bytes32);
     function ysr() external view returns (uint256);
@@ -35,7 +35,7 @@ interface ConvLike {
     function rtob(uint256) external pure returns (uint256);
 }
 
-contract YUsdsRateSetter {
+contract StUsdsRateSetter {
     // --- Storage Variables ---
     mapping(address => uint256) public wards;
     mapping(address => uint256) public buds;
@@ -60,10 +60,10 @@ contract YUsdsRateSetter {
     uint256 private constant RAD = 10 ** 45;
 
     // --- Immutables ---
-    JugLike   public immutable jug;
-    YUSDSLike public immutable yusds;
-    ConvLike  public immutable conv;
-    bytes32   public immutable ilk;
+    JugLike    public immutable jug;
+    StUsdsLike public immutable stusds;
+    ConvLike   public immutable conv;
+    bytes32    public immutable ilk;
 
     // --- Events ---
     event Rely(address indexed usr);
@@ -76,25 +76,25 @@ contract YUsdsRateSetter {
 
     // --- Modifiers ---
     modifier auth() {
-        require(wards[msg.sender] == 1, "YUsdsRateSetter/not-authorized");
+        require(wards[msg.sender] == 1, "StUsdsRateSetter/not-authorized");
         _;
     }
 
     modifier toll() {
-        require(buds[msg.sender] == 1, "YUsdsRateSetter/not-facilitator");
+        require(buds[msg.sender] == 1, "StUsdsRateSetter/not-facilitator");
         _;
     }
 
     modifier good() {
-        require(bad == 0, "YUsdsRateSetter/module-halted");
+        require(bad == 0, "StUsdsRateSetter/module-halted");
         _;
     }
 
-    constructor(address _yusds, address _conv) {
-        yusds = YUSDSLike(_yusds);
-        conv  = ConvLike(_conv);
-        jug   = JugLike(yusds.jug());
-        ilk   = yusds.ilk();
+    constructor(address _stusds, address _conv) {
+        stusds = StUsdsLike(_stusds);
+        conv   = ConvLike(_conv);
+        jug    = JugLike(stusds.jug());
+        ilk    = stusds.ilk();
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -123,21 +123,21 @@ contract YUsdsRateSetter {
 
     function file(bytes32 what, uint256 data) external auth {
         if (what == "bad") {
-            require(data == 0 || data == 1, "YUsdsRateSetter/invalid-bad-value");
+            require(data == 0 || data == 1, "StUsdsRateSetter/invalid-bad-value");
             bad = uint8(data);
         } else if (what == "tau") {
-            require(data <= type(uint64).max, "YUsdsRateSetter/invalid-tau-value");
+            require(data <= type(uint64).max, "StUsdsRateSetter/invalid-tau-value");
             tau = uint64(data);
         } else if (what == "toc") {
-            require(data <= type(uint128).max, "YUsdsRateSetter/invalid-toc-value");
+            require(data <= type(uint128).max, "StUsdsRateSetter/invalid-toc-value");
             toc = uint128(data);
         } else if (what == "maxLine") {
-            require(data == 0 || data >= RAD, "YUsdsRateSetter/maxLine-irrelevant-value");
+            require(data == 0 || data >= RAD, "StUsdsRateSetter/maxLine-irrelevant-value");
             maxLine = data;
         } else if (what == "maxCap") {
-            require(data < RAD, "YUsdsRateSetter/maxCap-insane-value");
+            require(data < RAD, "StUsdsRateSetter/maxCap-insane-value");
             maxCap = data;
-        } else revert("YUsdsRateSetter/file-unrecognized-param");
+        } else revert("StUsdsRateSetter/file-unrecognized-param");
         emit File(what, data);
     }
 
@@ -145,25 +145,25 @@ contract YUsdsRateSetter {
         Cfg storage cfg;
         if      (id == "YSR") cfg = ysrCfg;
         else if (id == ilk)   cfg = dutyCfg;
-        else revert("YUsdsRateSetter/file-unrecognized-id");
+        else revert("StUsdsRateSetter/file-unrecognized-id");
 
-        require(data <= type(uint16).max, "YUsdsRateSetter/invalid-value");
+        require(data <= type(uint16).max, "StUsdsRateSetter/invalid-value");
         if (what == "min") {
-            require(data <= cfg.max, "YUsdsRateSetter/min-too-high");
+            require(data <= cfg.max, "StUsdsRateSetter/min-too-high");
             cfg.min = uint16(data);
         } else if (what == "max") {
-            require(data >= cfg.min, "YUsdsRateSetter/max-too-low");
+            require(data >= cfg.min, "StUsdsRateSetter/max-too-low");
             cfg.max = uint16(data);
         } else if (what == "step") {
             cfg.step = uint16(data);
-        } else revert("YUsdsRateSetter/file-unrecognized-param");
+        } else revert("StUsdsRateSetter/file-unrecognized-param");
         emit File(id, what, data);
     }
 
     function _calcRate(uint256 bps, uint256 oldBps, Cfg memory cfg) internal view returns (uint256 ray) {
-        require(cfg.step > 0,   "YUsdsRateSetter/rate-not-configured");
-        require(bps >= cfg.min, "YUsdsRateSetter/below-min");
-        require(bps <= cfg.max, "YUsdsRateSetter/above-max");
+        require(cfg.step > 0,   "StUsdsRateSetter/rate-not-configured");
+        require(bps >= cfg.min, "StUsdsRateSetter/below-min");
+        require(bps <= cfg.max, "StUsdsRateSetter/above-max");
 
         if (oldBps < cfg.min) {
             oldBps = cfg.min;
@@ -173,31 +173,31 @@ contract YUsdsRateSetter {
 
         // Calculates absolute difference between the old and the new rate
         uint256 delta = bps > oldBps ? bps - oldBps : oldBps - bps;
-        require(delta <= cfg.step, "YUsdsRateSetter/delta-above-step");
+        require(delta <= cfg.step, "StUsdsRateSetter/delta-above-step");
 
         ray = conv.btor(bps);
-        require(ray >= RAY, "YUsdsRateSetter/invalid-rate-conv");
+        require(ray >= RAY, "StUsdsRateSetter/invalid-rate-conv");
     }
 
     // Notes:
     // - It is intended to rewrite the same values, emit the event, and reset the toc count, even if there is no change.
     function set(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) external toll good {
-        require(block.timestamp >= tau + toc, "YUsdsRateSetter/too-early");
+        require(block.timestamp >= tau + toc, "StUsdsRateSetter/too-early");
         toc = uint128(block.timestamp);
 
-        require(line <= maxLine, "YUsdsRateSetter/line-too-high");
-        yusds.file("line", line); // New line will be immediately taken into account as yusds.drip will be called few lines below
+        require(line <= maxLine, "StUsdsRateSetter/line-too-high");
+        stusds.file("line", line); // New line will be immediately taken into account as stusds.drip will be called few lines below
 
-        require(cap <= maxCap, "YUsdsRateSetter/cap-too-high");
-        yusds.file("cap", cap);
+        require(cap <= maxCap, "StUsdsRateSetter/cap-too-high");
+        stusds.file("cap", cap);
 
         uint256 ray = _calcRate({
             bps    : ysrBps,
-            oldBps : conv.rtob(yusds.ysr()),
+            oldBps : conv.rtob(stusds.ysr()),
             cfg    : ysrCfg
         });
-        yusds.drip();
-        yusds.file("ysr", ray);
+        stusds.drip();
+        stusds.file("ysr", ray);
 
         (uint256 duty,) = jug.ilks(ilk);
         ray = _calcRate({

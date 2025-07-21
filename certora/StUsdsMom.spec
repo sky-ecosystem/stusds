@@ -1,23 +1,23 @@
-// YUsdsMom.spec
+// StUsdsMom.spec
 
-using YUsds as yusds;
-using YUsdsRateSetter as rateSetter;
+using StUsds as stusds;
+using StUsdsRateSetter as rateSetter;
 
 methods {
     // storage variables
     function owner() external returns (address) envfree;
     function authority() external returns (address) envfree;
     // immutables
-    function yusds() external returns (address) envfree;
+    function stusds() external returns (address) envfree;
     //
-    function yusds.wards(address) external returns (uint256) envfree;
-    function yusds.line() external returns (uint256) envfree;
+    function stusds.wards(address) external returns (uint256) envfree;
+    function stusds.line() external returns (uint256) envfree;
     function rateSetter.wards(address) external returns (uint256) envfree;
     function rateSetter.buds(address) external returns (uint256) envfree;
     function rateSetter.bad() external returns (uint8) envfree;
     function rateSetter.maxCap() external returns (uint256) envfree;
     function rateSetter.maxLine() external returns (uint256) envfree;
-    function yusds.cap() external returns (uint256) envfree;
+    function stusds.cap() external returns (uint256) envfree;
     //
     function _.diss(address) external => DISPATCHER(true);
     function _.file(bytes32, uint256) external => DISPATCHER(true);
@@ -187,10 +187,10 @@ rule zeroCap(address rateSetter_) {
     zeroCap(e, rateSetter_);
 
     mathint rateSetterMaxCapAfter = rateSetter.maxCap();
-    mathint yusdsCapAfter = yusds.cap();
+    mathint stusdsCapAfter = stusds.cap();
 
     assert rateSetterMaxCapAfter == 0, "Assert 1";
-    assert yusdsCapAfter == 0, "Assert 2";
+    assert stusdsCapAfter == 0, "Assert 2";
 }
 
 // Verify revert rules on zeroCap
@@ -203,7 +203,7 @@ rule zeroCap_revert(address rateSetter_) {
     address authority = authority();
 
     // Happening in init scripts
-    require yusds.wards(currentContract) == 1;
+    require stusds.wards(currentContract) == 1;
     require rateSetter.wards(currentContract) == 1;
 
     zeroCap@withrevert(e, rateSetter_);
@@ -223,10 +223,10 @@ rule zeroLine(address rateSetter_) {
     zeroLine(e, rateSetter_);
 
     mathint rateSetterMaxLineAfter = rateSetter.maxLine();
-    mathint yusdsLineAfter = yusds.line();
+    mathint stusdsLineAfter = stusds.line();
 
     assert rateSetterMaxLineAfter == 0, "Assert 1";
-    assert yusdsLineAfter == 0, "Assert 2";
+    assert stusdsLineAfter == 0, "Assert 2";
 }
 
 // Verify revert rules on zeroLine
@@ -239,7 +239,7 @@ rule zeroLine_revert(address rateSetter_) {
     address authority = authority();
 
     // Happening in init scripts
-    require yusds.wards(currentContract) == 1;
+    require stusds.wards(currentContract) == 1;
     require rateSetter.wards(currentContract) == 1;
 
     zeroLine@withrevert(e, rateSetter_);

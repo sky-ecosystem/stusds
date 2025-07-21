@@ -1,4 +1,4 @@
-// YUsds.spec
+// StUsds.spec
 
 using Vat as vat;
 using Jug as jug;
@@ -697,7 +697,7 @@ rule cut(uint256 rad) {
     uint256 totalSupply = totalSupply();
     mathint totalAssetsBefore = totalAssets(e);
     mathint usdsTotalSupplyBefore = usds.totalSupply();
-    mathint usdsBalanceOfYusdsBefore = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStusdsBefore = usds.balanceOf(currentContract);
     mathint vatDaiVowBefore = vat.dai(vow);
 
     mathint assets = _min(_divup(rad, RAY()), totalAssetsBefore);
@@ -705,7 +705,7 @@ rule cut(uint256 rad) {
     // Correct vow set
     require vow != currentContract && vow != usdsJoin;
     // ERC20 correct behaviour
-    require usdsTotalSupplyBefore >= usdsBalanceOfYusdsBefore;
+    require usdsTotalSupplyBefore >= usdsBalanceOfStusdsBefore;
 
     mathint chiDripCalc = defNewChi(e);
     mathint newChiCalc = totalAssetsBefore > 0 ? chiDripCalc * (totalAssetsBefore - assets) / totalAssetsBefore : 0;
@@ -719,13 +719,13 @@ rule cut(uint256 rad) {
     mathint lineAfter; mathint a;
     a, a, a, lineAfter, a = vat.ilks(ilk);
     mathint usdsTotalSupplyAfter = usds.totalSupply();
-    mathint usdsBalanceOfYusdsAfter = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStusdsAfter = usds.balanceOf(currentContract);
     mathint vatDaiVowAfter = vat.dai(vow);
 
     assert chiAfter == newChiCalc, "Assert 1";
     assert lineAfter == lineCalc, "Assert 2";
     assert usdsTotalSupplyAfter == usdsTotalSupplyBefore + dripDiff - assets, "Assert 3";
-    assert usdsBalanceOfYusdsAfter == usdsBalanceOfYusdsBefore + dripDiff - assets, "Assert 4";
+    assert usdsBalanceOfStusdsAfter == usdsBalanceOfStusdsBefore + dripDiff - assets, "Assert 4";
     assert vatDaiVowAfter == vatDaiVowBefore + assets * RAY(), "Assert 5";
 }
 
@@ -747,7 +747,7 @@ rule cut_revert(uint256 rad) {
     mathint totalAssets = totalAssets(e);
 
     mathint usdsTotalSupply = usds.totalSupply();
-    mathint usdsBalanceOfYusds = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStusds = usds.balanceOf(currentContract);
 
     mathint assets = _min(_divup(rad, RAY()), totalAssets);
 
@@ -769,7 +769,7 @@ rule cut_revert(uint256 rad) {
     // Vat is functional
     require vat.live() == 1;
     // ERC20 correct behaviour
-    require usdsTotalSupply >= usdsBalanceOfYusds;
+    require usdsTotalSupply >= usdsBalanceOfStusds;
     // Correct behaviour usdsJoin
     require vat.dai(usdsJoin) >= usdsTotalSupply * RAY();
     // Convenience assumptions
@@ -812,12 +812,12 @@ rule drip() {
     uint256 totalSupply = totalSupply();
     mathint totalAssetsBefore = totalAssets(e);
     mathint usdsTotalSupplyBefore = usds.totalSupply();
-    mathint usdsBalanceOfYusdsBefore = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStusdsBefore = usds.balanceOf(currentContract);
 
     // Correct vow set
     require vow != currentContract && vow != usdsJoin;
     // ERC20 correct behaviour
-    require usdsTotalSupplyBefore >= usdsBalanceOfYusdsBefore;
+    require usdsTotalSupplyBefore >= usdsBalanceOfStusdsBefore;
 
     mathint newChiCalc = defNewChi(e);
     mathint lineCalc = _min(line, _subcap(totalSupply * newChiCalc, Due));
@@ -830,12 +830,12 @@ rule drip() {
     mathint lineAfter; mathint a;
     a, a, a, lineAfter, a = vat.ilks(ilk);
     mathint usdsTotalSupplyAfter = usds.totalSupply();
-    mathint usdsBalanceOfYusdsAfter = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStusdsAfter = usds.balanceOf(currentContract);
 
     assert chiAfter == newChiCalc, "Assert 1";
     assert lineAfter == lineCalc, "Assert 2";
     assert usdsTotalSupplyAfter == usdsTotalSupplyBefore + dripDiff, "Assert 3";
-    assert usdsBalanceOfYusdsAfter == usdsBalanceOfYusdsBefore + dripDiff, "Assert 4";
+    assert usdsBalanceOfStusdsAfter == usdsBalanceOfStusdsBefore + dripDiff, "Assert 4";
 }
 
 // Verify revert rules on drip
@@ -854,7 +854,7 @@ rule drip_revert() {
     mathint totalAssets = totalAssets(e);
 
     mathint usdsTotalSupply = usds.totalSupply();
-    mathint usdsBalanceOfYusds = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStusds = usds.balanceOf(currentContract);
 
     // Blockchain behaviour
     require e.block.timestamp >= rho();
@@ -873,7 +873,7 @@ rule drip_revert() {
     // Vat is functional
     require vat.live() == 1;
     // ERC20 correct behaviour
-    require usdsTotalSupply >= usdsBalanceOfYusds;
+    require usdsTotalSupply >= usdsBalanceOfStusds;
     // Correct behaviour usdsJoin
     require vat.dai(usdsJoin) >= usdsTotalSupply * RAY();
     // Convenience assumptions
@@ -1106,7 +1106,7 @@ rule deposit(uint256 assets, address receiver, uint16 referral) {
     mathint totalSupplyBefore = totalSupply();
     mathint balanceOfReceiverBefore = balanceOf(receiver);
     mathint balanceOfOtherBefore = balanceOf(otherAddr);
-    mathint usdsBalanceOfYUsdsBefore = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStUsdsBefore = usds.balanceOf(currentContract);
     mathint usdsBalanceOfSenderBefore = usds.balanceOf(e.msg.sender);
 
     mathint line = line();
@@ -1118,7 +1118,7 @@ rule deposit(uint256 assets, address receiver, uint16 referral) {
 
     // ERC20 correct behaviour
     require totalSupplyBefore >= balanceOfReceiverBefore + balanceOfOtherBefore;
-    require usds.totalSupply() >= usdsBalanceOfYUsdsBefore + usdsBalanceOfSenderBefore;
+    require usds.totalSupply() >= usdsBalanceOfStUsdsBefore + usdsBalanceOfSenderBefore;
 
     bool passReferral;
     mathint shares = passReferral ? deposit(e, assets, receiver, referral) : deposit(e, assets, receiver);
@@ -1127,7 +1127,7 @@ rule deposit(uint256 assets, address receiver, uint16 referral) {
     mathint totalSupplyAfter = totalSupply();
     mathint balanceOfReceiverAfter = balanceOf(receiver);
     mathint balanceOfOtherAfter = balanceOf(otherAddr);
-    mathint usdsBalanceOfYUsdsAfter = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStUsdsAfter = usds.balanceOf(currentContract);
     mathint usdsBalanceOfSenderAfter = usds.balanceOf(e.msg.sender);
     mathint lineAfter; mathint a;
     a, a, a, lineAfter, a = vat.ilks(ilk);
@@ -1136,7 +1136,7 @@ rule deposit(uint256 assets, address receiver, uint16 referral) {
     assert totalSupplyAfter == totalSupplyBefore + shares, "Assert 2";
     assert balanceOfReceiverAfter == balanceOfReceiverBefore + shares, "Assert 3";
     assert balanceOfOtherAfter == balanceOfOtherBefore, "Assert 4";
-    assert usdsBalanceOfYUsdsAfter == usdsBalanceOfYUsdsBefore + assets + dripDiffCalc, "Assert 5";
+    assert usdsBalanceOfStUsdsAfter == usdsBalanceOfStUsdsBefore + assets + dripDiffCalc, "Assert 5";
     assert usdsBalanceOfSenderAfter == usdsBalanceOfSenderBefore - assets, "Assert 6";
     assert chiAfter == newChiCalc, "Assert 7";
     assert lineAfter == lineCalc, "Assert 8";
@@ -1254,7 +1254,7 @@ rule mint(uint256 shares, address receiver, uint16 referral) {
     mathint totalSupplyBefore = totalSupply();
     mathint balanceOfReceiverBefore = balanceOf(receiver);
     mathint balanceOfOtherBefore = balanceOf(otherAddr);
-    mathint usdsBalanceOfYUsdsBefore = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStUsdsBefore = usds.balanceOf(currentContract);
     mathint usdsBalanceOfSenderBefore = usds.balanceOf(e.msg.sender);
 
     mathint line = line();
@@ -1266,7 +1266,7 @@ rule mint(uint256 shares, address receiver, uint16 referral) {
 
     // ERC20 correct behaviour
     require totalSupplyBefore >= balanceOfReceiverBefore + balanceOfOtherBefore;
-    require usds.totalSupply() >= usdsBalanceOfYUsdsBefore + usdsBalanceOfSenderBefore;
+    require usds.totalSupply() >= usdsBalanceOfStUsdsBefore + usdsBalanceOfSenderBefore;
 
     bool passReferral;
     mathint assets = passReferral ? mint(e, shares, receiver, referral) : mint(e, shares, receiver);
@@ -1275,7 +1275,7 @@ rule mint(uint256 shares, address receiver, uint16 referral) {
     mathint totalSupplyAfter = totalSupply();
     mathint balanceOfReceiverAfter = balanceOf(receiver);
     mathint balanceOfOtherAfter = balanceOf(otherAddr);
-    mathint usdsBalanceOfYUsdsAfter = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStUsdsAfter = usds.balanceOf(currentContract);
     mathint usdsBalanceOfSenderAfter = usds.balanceOf(e.msg.sender);
     mathint lineAfter; mathint a;
     a, a, a, lineAfter, a = vat.ilks(ilk);
@@ -1284,7 +1284,7 @@ rule mint(uint256 shares, address receiver, uint16 referral) {
     assert totalSupplyAfter == totalSupplyBefore + shares, "Assert 2";
     assert balanceOfReceiverAfter == balanceOfReceiverBefore + shares, "Assert 3";
     assert balanceOfOtherAfter == balanceOfOtherBefore, "Assert 4";
-    assert usdsBalanceOfYUsdsAfter == usdsBalanceOfYUsdsBefore + assets + dripDiffCalc, "Assert 5";
+    assert usdsBalanceOfStUsdsAfter == usdsBalanceOfStUsdsBefore + assets + dripDiffCalc, "Assert 5";
     assert usdsBalanceOfSenderAfter == usdsBalanceOfSenderBefore - assets, "Assert 6";
     assert chiAfter == newChiCalc, "Assert 7";
     assert lineAfter == lineCalc, "Assert 8";
@@ -1413,7 +1413,7 @@ rule withdraw(uint256 assets, address receiver, address owner) {
     mathint totalSupplyBefore = totalSupply();
     mathint balanceOfOwnerBefore = balanceOf(owner);
     mathint balanceOfOtherBefore = balanceOf(otherAddr);
-    mathint usdsBalanceOfYUsdsBefore = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStUsdsBefore = usds.balanceOf(currentContract);
     mathint usdsBalanceOfReceiverBefore = usds.balanceOf(receiver);
 
     mathint line = line();
@@ -1425,7 +1425,7 @@ rule withdraw(uint256 assets, address receiver, address owner) {
 
     // ERC20 correct behaviour
     require totalSupplyBefore >= balanceOfOwnerBefore + balanceOfOtherBefore;
-    require usds.totalSupply() >= usdsBalanceOfYUsdsBefore + usdsBalanceOfReceiverBefore;
+    require usds.totalSupply() >= usdsBalanceOfStUsdsBefore + usdsBalanceOfReceiverBefore;
 
     mathint shares = withdraw(e, assets, receiver, owner);
 
@@ -1433,7 +1433,7 @@ rule withdraw(uint256 assets, address receiver, address owner) {
     mathint totalSupplyAfter = totalSupply();
     mathint balanceOfOwnerAfter = balanceOf(owner);
     mathint balanceOfOtherAfter = balanceOf(otherAddr);
-    mathint usdsBalanceOfYUsdsAfter = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStUsdsAfter = usds.balanceOf(currentContract);
     mathint usdsBalanceOfReceiverAfter = usds.balanceOf(receiver);
     mathint lineAfter; mathint a;
     a, a, a, lineAfter, a = vat.ilks(ilk);
@@ -1443,7 +1443,7 @@ rule withdraw(uint256 assets, address receiver, address owner) {
     assert balanceOfOwnerAfter == balanceOfOwnerBefore - shares, "Assert 3";
     assert balanceOfOtherAfter == balanceOfOtherBefore, "Assert 4";
     assert receiver != currentContract => usdsBalanceOfReceiverAfter == usdsBalanceOfReceiverBefore + assets, "Assert 5";
-    assert receiver != currentContract => usdsBalanceOfYUsdsAfter == usdsBalanceOfYUsdsBefore - assets + dripDiffCalc, "Assert 6";
+    assert receiver != currentContract => usdsBalanceOfStUsdsAfter == usdsBalanceOfStUsdsBefore - assets + dripDiffCalc, "Assert 6";
     assert receiver == currentContract => usdsBalanceOfReceiverAfter == usdsBalanceOfReceiverBefore + dripDiffCalc, "Assert 7";
     assert chiAfter == newChiCalc, "Assert 8";
     assert lineAfter == lineCalc, "Assert 9";
@@ -1591,7 +1591,7 @@ rule redeem(uint256 shares, address receiver, address owner) {
     mathint totalSupplyBefore = totalSupply();
     mathint balanceOfOwnerBefore = balanceOf(owner);
     mathint balanceOfOtherBefore = balanceOf(otherAddr);
-    mathint usdsBalanceOfYUsdsBefore = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStUsdsBefore = usds.balanceOf(currentContract);
     mathint usdsBalanceOfReceiverBefore = usds.balanceOf(receiver);
 
     mathint line = line();
@@ -1603,7 +1603,7 @@ rule redeem(uint256 shares, address receiver, address owner) {
 
     // ERC20 correct behaviour
     require totalSupplyBefore >= balanceOfOwnerBefore + balanceOfOtherBefore;
-    require usds.totalSupply() >= usdsBalanceOfYUsdsBefore + usdsBalanceOfReceiverBefore;
+    require usds.totalSupply() >= usdsBalanceOfStUsdsBefore + usdsBalanceOfReceiverBefore;
 
     mathint assets = redeem(e, shares, receiver, owner);
 
@@ -1611,7 +1611,7 @@ rule redeem(uint256 shares, address receiver, address owner) {
     mathint totalSupplyAfter = totalSupply();
     mathint balanceOfOwnerAfter = balanceOf(owner);
     mathint balanceOfOtherAfter = balanceOf(otherAddr);
-    mathint usdsBalanceOfYUsdsAfter = usds.balanceOf(currentContract);
+    mathint usdsBalanceOfStUsdsAfter = usds.balanceOf(currentContract);
     mathint usdsBalanceOfReceiverAfter = usds.balanceOf(receiver);
     mathint lineAfter; mathint a;
     a, a, a, lineAfter, a = vat.ilks(ilk);
@@ -1621,7 +1621,7 @@ rule redeem(uint256 shares, address receiver, address owner) {
     assert balanceOfOwnerAfter == balanceOfOwnerBefore - shares, "Assert 3";
     assert balanceOfOtherAfter == balanceOfOtherBefore, "Assert 4";
     assert receiver != currentContract => usdsBalanceOfReceiverAfter == usdsBalanceOfReceiverBefore + assetsCalc, "Assert 5";
-    assert receiver != currentContract => usdsBalanceOfYUsdsAfter == usdsBalanceOfYUsdsBefore - assetsCalc + dripDiffCalc, "Assert 6";
+    assert receiver != currentContract => usdsBalanceOfStUsdsAfter == usdsBalanceOfStUsdsBefore - assetsCalc + dripDiffCalc, "Assert 6";
     assert receiver == currentContract => usdsBalanceOfReceiverAfter == usdsBalanceOfReceiverBefore + dripDiffCalc, "Assert 7";
     assert chiAfter == newChiCalc, "Assert 8";
     assert lineAfter == lineCalc, "Assert 9";

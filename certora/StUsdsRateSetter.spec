@@ -1,6 +1,6 @@
-// YUsdsRateSetter.spec
+// StUsdsRateSetter.spec
 
-using YUsds as yusds;
+using StUsds as stusds;
 using Jug as jug;
 using ConvMock as conv;
 using Vat as vat;
@@ -22,11 +22,11 @@ methods {
     //
     function jug.ilks(bytes32) external returns (uint256, uint256) envfree;
     function jug.wards(address) external returns (uint256) envfree;
-    function yusds.wards(address) external returns (uint256) envfree;
-    function yusds.rho() external returns (uint64) envfree;
-    function yusds.ysr() external returns (uint256) envfree;
-    function yusds.line() external returns (uint256) envfree;
-    function yusds.cap() external returns (uint256) envfree;
+    function stusds.wards(address) external returns (uint256) envfree;
+    function stusds.rho() external returns (uint64) envfree;
+    function stusds.ysr() external returns (uint256) envfree;
+    function stusds.line() external returns (uint256) envfree;
+    function stusds.cap() external returns (uint256) envfree;
     function conv.btor(uint256) external returns (uint256) envfree;
     function conv.rtob(uint256) external returns (uint256) envfree;
     //
@@ -383,7 +383,7 @@ rule set(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
     bytes32 ilk = ilk();
     require ilk != to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000);
 
-    mathint rhoBefore = yusds.rho();
+    mathint rhoBefore = stusds.rho();
     mathint jRhoBefore; mathint a;
     a, jRhoBefore = jug.ilks(ilk);
 
@@ -392,12 +392,12 @@ rule set(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
 
     set(e, ysrBps, dutyBps, line, cap);
 
-    mathint ysrAfter = yusds.ysr();
-    mathint rhoAfter = yusds.rho();
+    mathint ysrAfter = stusds.ysr();
+    mathint rhoAfter = stusds.rho();
     mathint dutyAfter; mathint jRhoAfter;
     dutyAfter, jRhoAfter = jug.ilks(ilk);
-    mathint lineAfter = yusds.line();
-    mathint capAfter = yusds.cap();
+    mathint lineAfter = stusds.line();
+    mathint capAfter = stusds.cap();
 
     assert rhoAfter == e.block.timestamp, "Assert 1";
     assert ysrAfter == ysrRAY, "Assert 2";
@@ -405,7 +405,7 @@ rule set(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
     assert dutyAfter == dutyRAY, "Assert 4";
     assert lineAfter == line, "Assert 5";
     assert capAfter == cap, "Assert 6";
-    satisfy rhoBefore < rhoAfter, "Satisfy 1"; // Proves that yusds.drip() gets called
+    satisfy rhoBefore < rhoAfter, "Satisfy 1"; // Proves that stusds.drip() gets called
     satisfy jRhoBefore < jRhoAfter, "Satisfy 2"; // Proves that jug.drip(ilk) gets called
 }
 
@@ -427,8 +427,8 @@ rule set_revert(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
     mathint dutyMin; mathint dutyMax; mathint dutyStep;
     dutyMin, dutyMax, dutyStep = dutyCfg();
 
-    mathint rho = yusds.rho();
-    uint256 ysr = yusds.ysr();
+    mathint rho = stusds.rho();
+    uint256 ysr = stusds.ysr();
     uint256 duty; mathint jRho;
     duty, jRho = jug.ilks(ilk);
 
@@ -444,7 +444,7 @@ rule set_revert(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
     requireInvariant dutyMin_LessOrEqual_dutyMax;
 
     // Happening in init scripts
-    require yusds.wards(currentContract) == 1;
+    require stusds.wards(currentContract) == 1;
     require jug.wards(currentContract) == 1;
     // Contracts behaviour
     require rho <= e.block.timestamp && jRho <= e.block.timestamp;
@@ -472,7 +472,7 @@ rule set_revert(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
     storage initial = lastStorage;
 
     // Filter out all the reverts happening in both drip calls
-    yusds.drip(e);
+    stusds.drip(e);
     jug.drip(e, ilk);
     
     set@withrevert(e, ysrBps, dutyBps, line, cap) at initial;
