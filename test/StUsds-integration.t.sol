@@ -46,7 +46,7 @@ contract StUsds2 is UUPSUpgradeable {
     // Savings yield
     uint192 public chi;   // The Rate Accumulator  [ray]
     uint64  public rho;   // Time of last drip     [unix epoch time]
-    uint256 public ysr;   // The USDS Savings Rate [ray]
+    uint256 public str;   // The USDS Savings Rate [ray]
 
     string  public constant version  = "2";
 
@@ -110,7 +110,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         token = StUsds(inst.stUsds);
         StUsdsConfig memory conf = StUsdsConfig({
             clip: address(clip),
-            ysr: 1000000001547125957863212448,
+            str: 1000000001547125957863212448,
             cap: type(uint256).max,
             line: type(uint256).max,
             tau: 0, // passnig zeros as RateSetter will not be used in this test
@@ -119,9 +119,9 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
             maxDutyBps: 0,
             minDutyBps: 0,
             stepDutyBps: 0,
-            maxYsrBps: 0,
-            minYsrBps: 0,
-            stepYsrBps: 0,
+            maxStrBps: 0,
+            minStrBps: 0,
+            stepStrBps: 0,
             buds: new address[](0)
         });
         vm.warp(block.timestamp + 10);
@@ -131,7 +131,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         vm.stopPrank();
         assertEq(token.chi(), RAY);
         assertEq(token.rho(), block.timestamp);
-        assertEq(token.ysr(), 1000000001547125957863212448);
+        assertEq(token.str(), 1000000001547125957863212448);
         assertEq(dss.vat.can(address(token), usdsJoin), 1);
         assertEq(token.wards(pauseProxy), 1);
         assertEq(token.version(), "1");
@@ -289,7 +289,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         assertEq(token2.decimals(), 18);
         assertEq(token2.chi(), RAY);
         assertEq(token2.rho(), block.timestamp);
-        assertEq(token2.ysr(), RAY);
+        assertEq(token2.str(), RAY);
         assertEq(dss.vat.can(address(token2), usdsJoin), 1);
         assertEq(token2.wards(address(this)), 1);
         assertEq(address(token2.usdsJoin()), usdsJoin);
@@ -307,14 +307,14 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testFile() public {
-        checkFileUint(address(token), "StUsds", ["ysr"]);
+        checkFileUint(address(token), "StUsds", ["str"]);
 
-        vm.expectRevert("StUsds/wrong-ysr-value");
-        vm.prank(pauseProxy); token.file("ysr", RAY - 1);
+        vm.expectRevert("StUsds/wrong-str-value");
+        vm.prank(pauseProxy); token.file("str", RAY - 1);
 
         vm.warp(block.timestamp + 1);
         vm.expectRevert("StUsds/chi-not-up-to-date");
-        vm.prank(pauseProxy); token.file("ysr", RAY);
+        vm.prank(pauseProxy); token.file("str", RAY);
     }
 
     function testERC20() public {
@@ -326,7 +326,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
     }
 
     function testConversion() public {
-        assertGt(token.ysr(), 0);
+        assertGt(token.str(), 0);
 
         uint256 pshares = token.convertToShares(1e18);
         uint256 passets = token.convertToAssets(pshares);
@@ -365,7 +365,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         uint256 supply = token.totalSupply();
         uint256 stusdsUsds = usds.balanceOf(address(token));
         uint256 originalChi = token.chi();
-        uint256 expectedChi1 = _rpow(token.ysr(), block.timestamp - token.rho()) * token.chi() / RAY;
+        uint256 expectedChi1 = _rpow(token.str(), block.timestamp - token.rho()) * token.chi() / RAY;
         diff1 = supply * expectedChi1 / RAY - supply * originalChi / RAY;
         vm.expectEmit();
         emit Drip(expectedChi1, diff1);
@@ -376,7 +376,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         (,,, line2,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line2, line1 + diff1 * RAY, 0.00000000000000001e45);
         vm.warp(block.timestamp + 100 days);
-        uint256 expectedChi2 = _rpow(token.ysr(), 100 days) * expectedChi1 / RAY;
+        uint256 expectedChi2 = _rpow(token.str(), 100 days) * expectedChi1 / RAY;
         diff2 = supply * expectedChi2 / RAY - supply * expectedChi1 / RAY;
         clip.setDue(1e45);
         vm.expectEmit();
@@ -391,7 +391,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         emit Drip(expectedChi2, 0);
         assertEq(token.drip(), expectedChi2);
         vm.warp(block.timestamp + 100 days);
-        uint256 expectedChi3 = _rpow(token.ysr(), 100 days) * expectedChi2 / RAY;
+        uint256 expectedChi3 = _rpow(token.str(), 100 days) * expectedChi2 / RAY;
         diff3 = supply * expectedChi3 / RAY - supply * expectedChi2 / RAY;
         vm.prank(pauseProxy); token.file("line", line3 + 2e45);
         vm.expectEmit();
@@ -415,7 +415,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         (,,, line1,) = dss.vat.ilks(token.ilk());
 
         chiFirst = token.chi();
-        chiLast = _rpow(token.ysr(), 100 days) * chiFirst / RAY;
+        chiLast = _rpow(token.str(), 100 days) * chiFirst / RAY;
         assertGt(chiLast, chiFirst);
 
         vm.warp(block.timestamp + 100 days);
@@ -464,7 +464,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         uint256 stusdsUsds = usds.balanceOf(address(token));
 
         chiFirst = token.chi();
-        chiLast = _rpow(token.ysr(), 100 days) * chiFirst / RAY;
+        chiLast = _rpow(token.str(), 100 days) * chiFirst / RAY;
         assertGt(chiLast, chiFirst);
 
         vm.warp(block.timestamp + 100 days);
@@ -503,7 +503,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         (,,, line1,) = dss.vat.ilks(token.ilk());
 
         chiFirst = token.chi();
-        chiLast = _rpow(token.ysr(), 100 days) * chiFirst / RAY;
+        chiLast = _rpow(token.str(), 100 days) * chiFirst / RAY;
         assertGt(chiLast, chiFirst);
 
         vm.warp(block.timestamp + 100 days);
@@ -552,7 +552,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         uint256 stusdsUsds = usds.balanceOf(address(token));
 
         chiFirst = token.chi();
-        chiLast = _rpow(token.ysr(), 100 days) * chiFirst / RAY;
+        chiLast = _rpow(token.str(), 100 days) * chiFirst / RAY;
         assertGt(chiLast, chiFirst);
 
         vm.warp(block.timestamp + 100 days);
@@ -589,8 +589,8 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         uint256 stusdsUsds = usds.balanceOf(address(token));
 
         chiFirst = token.chi();
-        chiMiddle = _rpow(token.ysr(), 100 days) * chiFirst / RAY;
-        chiLast = _rpow(token.ysr(), 200 days) * chiMiddle / RAY;
+        chiMiddle = _rpow(token.str(), 100 days) * chiFirst / RAY;
+        chiLast = _rpow(token.str(), 200 days) * chiMiddle / RAY;
         assertGt(chiMiddle, chiFirst);
         assertGt(chiLast, chiMiddle);
 
@@ -656,8 +656,8 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         uint256 stusdsUsds = usds.balanceOf(address(token));
 
         chiFirst = token.chi();
-        chiMiddle = _rpow(token.ysr(), 100 days) * chiFirst / RAY;
-        chiLast = _rpow(token.ysr(), 200 days) * chiMiddle / RAY;
+        chiMiddle = _rpow(token.str(), 100 days) * chiFirst / RAY;
+        chiLast = _rpow(token.str(), 200 days) * chiMiddle / RAY;
         assertGt(chiMiddle, chiFirst);
         assertGt(chiLast, chiMiddle);
 
@@ -772,7 +772,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         uint256 supply = token.totalSupply();
         uint256 stusdsUsds = usds.balanceOf(address(token));
         uint256 originalChi = token.chi();
-        uint256 expectedChi1 = _rpow(token.ysr(), block.timestamp - token.rho()) * token.chi() / RAY;
+        uint256 expectedChi1 = _rpow(token.str(), block.timestamp - token.rho()) * token.chi() / RAY;
         diff1 = supply * expectedChi1 / RAY - supply * originalChi / RAY;
         vm.expectEmit();
         emit Drip(expectedChi1, diff1);
@@ -783,7 +783,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         (,,, line2,) = dss.vat.ilks(token.ilk());
         assertApproxEqAbs(line2, line1 + diff1 * RAY, 0.00000000000000001e45);
         vm.warp(block.timestamp + warp2);
-        uint256 expectedChi2 = _rpow(token.ysr(), warp2) * expectedChi1 / RAY;
+        uint256 expectedChi2 = _rpow(token.str(), warp2) * expectedChi1 / RAY;
         diff2 = supply * expectedChi2 / RAY - supply * expectedChi1 / RAY;
         due = bound(due, 0, _min(line2 + diff2 * RAY, supply * expectedChi2));
         clip.setDue(due);
@@ -799,7 +799,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         emit Drip(expectedChi2, 0);
         assertEq(token.drip(), expectedChi2);
         vm.warp(block.timestamp + warp3);
-        uint256 expectedChi3 = _rpow(token.ysr(), warp3) * expectedChi2 / RAY;
+        uint256 expectedChi3 = _rpow(token.str(), warp3) * expectedChi2 / RAY;
         diff3 = supply * expectedChi3 / RAY - supply * expectedChi2 / RAY;
         line = bound(line, 0, diff3 * RAY);
         vm.prank(pauseProxy); token.file("line", line3 + line);
@@ -842,7 +842,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         (,,, line1,) = dss.vat.ilks(token.ilk());
 
         chiFirst = token.chi();
-        chiLast = _rpow(token.ysr(), warp) * chiFirst / RAY;
+        chiLast = _rpow(token.str(), warp) * chiFirst / RAY;
         assertGe(chiLast, chiFirst);
 
         vm.warp(block.timestamp + warp);
@@ -921,7 +921,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         (,,, line1,) = dss.vat.ilks(token.ilk());
 
         chiFirst = token.chi();
-        chiLast = _rpow(token.ysr(), warp) * chiFirst / RAY;
+        chiLast = _rpow(token.str(), warp) * chiFirst / RAY;
         assertGe(chiLast, chiFirst);
 
         shares = bound(shares, 0, 100 ether * RAY / chiLast);
@@ -993,8 +993,8 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         usdsBalanceFrom = usds.balanceOf(from);
         usdsBalanceTo = usds.balanceOf(to);
         chiFirst = token.chi();
-        chiMiddle = _rpow(token.ysr(), warp) * chiFirst / RAY;
-        chiLast = _rpow(token.ysr(), warp2) * chiMiddle / RAY;
+        chiMiddle = _rpow(token.str(), warp) * chiFirst / RAY;
+        chiLast = _rpow(token.str(), warp2) * chiMiddle / RAY;
         assertGe(chiMiddle, chiFirst);
         assertGe(chiLast, chiMiddle);
 
@@ -1086,8 +1086,8 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         usdsBalanceFrom = usds.balanceOf(from);
         usdsBalanceTo = usds.balanceOf(to);
         chiFirst = token.chi();
-        chiMiddle = _rpow(token.ysr(), warp) * chiFirst / RAY;
-        chiLast = _rpow(token.ysr(), warp2) * chiMiddle / RAY;
+        chiMiddle = _rpow(token.str(), warp) * chiFirst / RAY;
+        chiLast = _rpow(token.str(), warp2) * chiMiddle / RAY;
         assertGe(chiMiddle, chiFirst);
         assertGe(chiLast, chiMiddle);
 
@@ -1171,7 +1171,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
 
         warp = bound(warp, 0, 10 days);
 
-        chiLast = ((block.timestamp + warp) > token.rho()) ? _rpow(token.ysr(), (block.timestamp + warp) - token.rho()) * token.chi() / RAY : token.chi();
+        chiLast = ((block.timestamp + warp) > token.rho()) ? _rpow(token.str(), (block.timestamp + warp) - token.rho()) * token.chi() / RAY : token.chi();
 
         depositAmount = bound(depositAmount, 0, _subcap(cap, token.totalSupply() * chiLast));
         depositAmount = depositAmount * token.chi() / chiLast;
@@ -1325,7 +1325,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         uint256 vatDaiVow = dss.vat.dai(address(dss.vow));
         assertLe(totalAssets, stusdsUsds);
         chiFirst = token.chi();
-        uint256 chiPrevDeduction = _rpow(token.ysr(), block.timestamp + 100 days - token.rho()) * token.chi() / RAY;
+        uint256 chiPrevDeduction = _rpow(token.str(), block.timestamp + 100 days - token.rho()) * token.chi() / RAY;
         diff1 = supply * chiPrevDeduction / RAY - supply * chiFirst / RAY;
         chiLast = chiPrevDeduction * (totalAssets + diff1 - 1_000e18) / (totalAssets + diff1);
 
@@ -1509,7 +1509,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
         uint256 vatDaiVow = dss.vat.dai(address(dss.vow));
         assertLe(totalAssets, stusdsUsds);
         chiFirst = token.chi();
-        uint256 chiPrevDeduction = _rpow(token.ysr(), block.timestamp + warp - token.rho()) * token.chi() / RAY;
+        uint256 chiPrevDeduction = _rpow(token.str(), block.timestamp + warp - token.rho()) * token.chi() / RAY;
         diff1 = supply * chiPrevDeduction / RAY - supply * chiFirst / RAY;
         chiLast = chiPrevDeduction * (totalAssets + diff1 - assets) / (totalAssets + diff1);
 

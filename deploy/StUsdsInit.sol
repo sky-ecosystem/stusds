@@ -57,7 +57,7 @@ interface StUsdsMomLike {
 
 struct StUsdsConfig {
     address clip;
-    uint256 ysr;
+    uint256 str;
     uint256 cap;
     uint256 line;
 
@@ -65,9 +65,9 @@ struct StUsdsConfig {
     uint256   tau;
     uint256   maxLine;
     uint256   maxCap;
-    uint256   minYsrBps;
-    uint256   maxYsrBps;
-    uint256   stepYsrBps;
+    uint256   minStrBps;
+    uint256   maxStrBps;
+    uint256   stepStrBps;
     uint256   minDutyBps;
     uint256   maxDutyBps;
     uint256   stepDutyBps;
@@ -92,7 +92,7 @@ library StUsdsInit {
         require(StUsdsLike(instance.stUsds).clip()     == cfg.clip,                             "StUsdsInit/clip-does-not-match");
         require(StUsdsLike(instance.stUsds).vow()      == address(dss.vow),                     "StUsdsInit/vow-does-not-match");
 
-        require(cfg.ysr >= RAY && cfg.ysr <= RATES_ONE_HUNDRED_PCT, "StUsdsInit/ysr-out-of-boundaries");
+        require(cfg.str >= RAY && cfg.str <= RATES_ONE_HUNDRED_PCT, "StUsdsInit/str-out-of-boundaries");
 
         require(RateSetterLike(instance.rateSetter).stusds() == instance.stUsds, "StUsdsInit/stusds-does-not-match");
         require(RateSetterLike(instance.rateSetter).conv() == SPBEAMLike(dss.chainlog.getAddress("MCD_SPBEAM")).conv(), "StUsdsInit/conv-does-not-match");
@@ -106,7 +106,7 @@ library StUsdsInit {
         AutoLineLike(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).remIlk(ilk);
 
         StUsdsLike(instance.stUsds).drip();
-        StUsdsLike(instance.stUsds).file("ysr",  cfg.ysr);
+        StUsdsLike(instance.stUsds).file("str",  cfg.str);
         StUsdsLike(instance.stUsds).file("cap",  cfg.cap);
         StUsdsLike(instance.stUsds).file("line", cfg.line);
 
@@ -119,9 +119,9 @@ library StUsdsInit {
         RateSetterLike(instance.rateSetter).file("maxCap",  cfg.maxCap);
 
         // Note: we configure max first on purpose to initially pass the max > min validation
-        RateSetterLike(instance.rateSetter).file("YSR", "max",  cfg.maxYsrBps);
-        RateSetterLike(instance.rateSetter).file("YSR", "min",  cfg.minYsrBps);
-        RateSetterLike(instance.rateSetter).file("YSR", "step", cfg.stepYsrBps);
+        RateSetterLike(instance.rateSetter).file("STR", "max",  cfg.maxStrBps);
+        RateSetterLike(instance.rateSetter).file("STR", "min",  cfg.minStrBps);
+        RateSetterLike(instance.rateSetter).file("STR", "step", cfg.stepStrBps);
 
         RateSetterLike(instance.rateSetter).file(ilk, "max",  cfg.maxDutyBps);
         RateSetterLike(instance.rateSetter).file(ilk, "min",  cfg.minDutyBps);

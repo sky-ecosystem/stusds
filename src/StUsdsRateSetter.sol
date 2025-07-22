@@ -25,7 +25,7 @@ interface JugLike {
 interface StUsdsLike {
     function jug() external view returns (address);
     function ilk() external view returns (bytes32);
-    function ysr() external view returns (uint256);
+    function str() external view returns (uint256);
     function file(bytes32, uint256) external;
     function drip() external;
 }
@@ -39,7 +39,7 @@ contract StUsdsRateSetter {
     // --- Storage Variables ---
     mapping(address => uint256) public wards;
     mapping(address => uint256) public buds;
-    Cfg     public ysrCfg;
+    Cfg     public strCfg;
     Cfg     public dutyCfg;
     uint256 public maxLine; // [rad]
     uint256 public maxCap;  // [wad]
@@ -72,7 +72,7 @@ contract StUsdsRateSetter {
     event Diss(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
     event File(bytes32 indexed id, bytes32 indexed what, uint256 data);
-    event Set(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap);
+    event Set(uint256 strBps, uint256 dutyBps, uint256 line, uint256 cap);
 
     // --- Modifiers ---
     modifier auth() {
@@ -143,7 +143,7 @@ contract StUsdsRateSetter {
 
     function file(bytes32 id, bytes32 what, uint256 data) external auth {
         Cfg storage cfg;
-        if      (id == "YSR") cfg = ysrCfg;
+        if      (id == "STR") cfg = strCfg;
         else if (id == ilk)   cfg = dutyCfg;
         else revert("StUsdsRateSetter/file-unrecognized-id");
 
@@ -181,7 +181,7 @@ contract StUsdsRateSetter {
 
     // Notes:
     // - It is intended to rewrite the same values, emit the event, and reset the toc count, even if there is no change.
-    function set(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) external toll good {
+    function set(uint256 strBps, uint256 dutyBps, uint256 line, uint256 cap) external toll good {
         require(block.timestamp >= tau + toc, "StUsdsRateSetter/too-early");
         toc = uint128(block.timestamp);
 
@@ -192,12 +192,12 @@ contract StUsdsRateSetter {
         stusds.file("cap", cap);
 
         uint256 ray = _calcRate({
-            bps    : ysrBps,
-            oldBps : conv.rtob(stusds.ysr()),
-            cfg    : ysrCfg
+            bps    : strBps,
+            oldBps : conv.rtob(stusds.str()),
+            cfg    : strCfg
         });
         stusds.drip();
-        stusds.file("ysr", ray);
+        stusds.file("str", ray);
 
         (uint256 duty,) = jug.ilks(ilk);
         ray = _calcRate({
@@ -208,6 +208,6 @@ contract StUsdsRateSetter {
         jug.drip(ilk);
         jug.file(ilk, "duty", ray);
 
-        emit Set(ysrBps, dutyBps, line, cap);
+        emit Set(strBps, dutyBps, line, cap);
     }
 }

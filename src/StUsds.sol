@@ -73,7 +73,7 @@ contract StUsds is UUPSUpgradeable {
     // Savings yield
     uint192 public chi;   // The Rate Accumulator  [ray]
     uint64  public rho;   // Time of last drip     [unix epoch time]
-    uint256 public ysr;   // The yield supply rate [ray]
+    uint256 public str;   // The staked usds rate  [ray]
     uint256 public cap;   // Supply max deposits   [wad]
     uint256 public line;  // Borrow max ceiling    [rad]
 
@@ -146,7 +146,7 @@ contract StUsds is UUPSUpgradeable {
 
         chi = uint192(RAY);
         rho = uint64(block.timestamp);
-        ysr = RAY;
+        str = RAY;
         vat.hope(address(usdsJoin));
         usds.approve(address(usdsJoin), type(uint256).max);
         wards[msg.sender] = 1;
@@ -235,10 +235,10 @@ contract StUsds is UUPSUpgradeable {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "ysr") {
-            require(data >= RAY, "StUsds/wrong-ysr-value");
+        if (what == "str") {
+            require(data >= RAY, "StUsds/wrong-str-value");
             require(rho == block.timestamp, "StUsds/chi-not-up-to-date");
-            ysr = data;
+            str = data;
         } else if (what == "cap") {
             cap = data;
         } else if (what == "line") {
@@ -273,7 +273,7 @@ contract StUsds is UUPSUpgradeable {
         (uint256 chi_, uint256 rho_) = (chi, rho);
         uint256 diff;
         if (block.timestamp > rho_) {
-            nChi = _rpow(ysr, block.timestamp - rho_) * chi_ / RAY;
+            nChi = _rpow(str, block.timestamp - rho_) * chi_ / RAY;
             uint256 totalSupply_ = totalSupply;
             diff = totalSupply_ * nChi / RAY - totalSupply_ * chi_ / RAY;
             vat.suck(vow, address(this), diff * RAY);
@@ -405,18 +405,18 @@ contract StUsds is UUPSUpgradeable {
     }
 
     function convertToShares(uint256 assets) public view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
         return chi_ > 0 ? assets * RAY / chi_ : 0;
     }
 
     function convertToAssets(uint256 shares) public view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
         return shares * chi_ / RAY;
     }
 
     function maxDeposit(address) external view returns (uint256) {
         uint256 cap_ = cap;
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
         if (chi_ == 0) {
             return 0;
         } else if (cap_ < type(uint256).max) {
@@ -442,7 +442,7 @@ contract StUsds is UUPSUpgradeable {
 
     function maxMint(address) external view returns (uint256) {
         uint256 cap_ = cap;
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
         if (chi_ == 0) {
             return 0;
         } else if (cap_ < type(uint256).max) {
@@ -453,7 +453,7 @@ contract StUsds is UUPSUpgradeable {
     }
 
     function previewMint(uint256 shares) external view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
         return _divup(shares * chi_, RAY);
     }
 
@@ -469,7 +469,7 @@ contract StUsds is UUPSUpgradeable {
     }
 
     function maxWithdraw(address owner) external view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
         (uint256 Art, uint256 rate,,,) = vat.ilks(ilk);
         (uint256 duty_, uint256 rho_) = jug.ilks(ilk);
         rate = (block.timestamp > rho_) ? _rpow(duty_, block.timestamp - rho_) * rate / RAY : rate;
@@ -481,7 +481,7 @@ contract StUsds is UUPSUpgradeable {
     }
 
     function previewWithdraw(uint256 assets) external view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
         return chi_ > 0 ? _divup(assets * RAY, chi_) : 0;
     }
 
@@ -491,7 +491,7 @@ contract StUsds is UUPSUpgradeable {
     }
 
     function maxRedeem(address owner) external view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ysr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
         (uint256 Art, uint256 rate,,,) = vat.ilks(ilk);
         (uint256 duty_, uint256 rho_) = jug.ilks(ilk);
         rate = (block.timestamp > rho_) ? _rpow(duty_, block.timestamp - rho_) * rate / RAY : rate;

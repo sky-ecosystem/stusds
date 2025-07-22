@@ -55,7 +55,7 @@ contract StUsdsERC4626Test is ERC4626Test {
         stUsds = StUsds(address(new ERC1967Proxy(address(new StUsds(address(usdsJoin), address(jug), address(clip), address(0))), abi.encodeCall(StUsds.initialize, ()))));
         vat.rely(address(stUsds));
 
-        stUsds.file("ysr", 1000000001547125957863212448);
+        stUsds.file("str", 1000000001547125957863212448);
         stUsds.file("cap", type(uint256).max);
 
         vat.hope(address(usdsJoin));

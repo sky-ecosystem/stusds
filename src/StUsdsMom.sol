@@ -102,7 +102,7 @@ contract StUsdsMom {
         emit ZeroCap(rateSetter);
     }
 
-    // Consider also calling ysds.drip() or using the line-mom to stop borrowing immediately
+    // Consider also calling stusds.drip() or using the line-mom to stop borrowing immediately
     function zeroLine(address rateSetter) external auth {
         stusds.file("line", 0);
         RateSetterLike(rateSetter).file("maxLine", 0);
