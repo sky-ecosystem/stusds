@@ -1,6 +1,6 @@
 # Staked USDS
 
-An implementation of a yield-bearing USDS token, which aims at ensuring that all staked-SKY backed borrowing is funded by segregated risk capital.
+An implementation of a yield-bearing USDS token, which aims at ensuring that all staked-SKY-backed borrowing is funded by segregated risk capital.
 Depositors, who in practice provide insurance funds to the system, take on several risks, such as stake engine bad debt accrual, or Sky governance risk (see `Trust Assumptions and Suppliers Considerations` below).
 
 ## Overview
