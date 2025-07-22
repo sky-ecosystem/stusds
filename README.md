@@ -55,7 +55,7 @@ The `deposit` and `mint` functions accept an optional `uint16 referral` paramete
 * If after the stUSDS launch and LockstakeClipper replacement, there is still a remaining auction running from the previous clipper (which doesn't track `Due` value), that debt won't be taken into account for calculating the `line` setting.
 
 ### Rate Setter:
-* The Rate Setter logic is based on [SPBEAM](https://github.com/sky-ecosystem/sp-beam). Its various security considerations are assumed here as well (e.g "Asymmetrical Risks Between Rate Increase and Decrease", "Considerations for Configurations", see SPBEAM audit [reports](https://github.com/sky-ecosystem/sp-beam/tree/master/audits).
+* The Rate Setter logic is based on [SPBEAM](https://github.com/sky-ecosystem/sp-beam). Its various security considerations are assumed here as well (e.g "Asymmetrical Risks Between Rate Increase and Decrease", "Considerations for Configurations"), see SPBEAM audit [reports](https://github.com/sky-ecosystem/sp-beam/tree/master/audits).
 * There is no pacing mechanism for the Rate Setter's `cap` and `line` setting, as it is assumed that the combination of the max values and the rate pacing ("steps") are enough to protect against big losses.
 * The Rate Setter operators off-chain algorithm is assumed to take into account manipulation attempts. For example, it can use an average past utilization, and possibly introduce some variance in its samples. If needed, it is assumed to be updated when manipulations are spotted.
 * It is assumed that a max rate of 50% is enough (as supported in the [Conv](https://github.com/sky-ecosystem/rates-conv) module). If needed, the Rate Setter could be replaced to support higher rates.
