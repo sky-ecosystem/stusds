@@ -20,7 +20,7 @@ interface AuthorityLike {
     function canCall(address, address, bytes4) external view returns (bool);
 }
 
-interface YUsdsLike {
+interface StUsdsLike {
     function file(bytes32, uint256) external;
 }
 
@@ -29,13 +29,13 @@ interface RateSetterLike {
     function file(bytes32, uint256) external;
 }
 
-contract YUsdsMom {
+contract StUsdsMom {
     // --- Storage ---
     address public owner;
     address public authority;
 
     // --- Immutables ---
-    YUsdsLike immutable public yusds;
+    StUsdsLike immutable public stusds;
 
     // --- Events ---
     event SetOwner(address indexed owner);
@@ -47,17 +47,17 @@ contract YUsdsMom {
 
     // --- Modifiers ---
     modifier onlyOwner() {
-        require(msg.sender == owner, "YUsdsMom/not-owner");
+        require(msg.sender == owner, "StUsdsMom/not-owner");
         _;
     }
 
     modifier auth() {
-        require(isAuthorized(msg.sender, msg.sig), "YUsdsMom/not-authorized");
+        require(isAuthorized(msg.sender, msg.sig), "StUsdsMom/not-authorized");
         _;
     }
 
-    constructor(address yusds_) {
-        yusds = YUsdsLike(yusds_);
+    constructor(address stusds_) {
+        stusds = StUsdsLike(stusds_);
 
         owner = msg.sender;
         emit SetOwner(msg.sender);
@@ -97,14 +97,14 @@ contract YUsdsMom {
     }
 
     function zeroCap(address rateSetter) external auth {
-        yusds.file("cap", 0);
+        stusds.file("cap", 0);
         RateSetterLike(rateSetter).file("maxCap", 0);
         emit ZeroCap(rateSetter);
     }
 
-    // Consider also calling ysds.drip() or using the line-mom to stop borrowing immediately
+    // Consider also calling stusds.drip() or using the line-mom to stop borrowing immediately
     function zeroLine(address rateSetter) external auth {
-        yusds.file("line", 0);
+        stusds.file("line", 0);
         RateSetterLike(rateSetter).file("maxLine", 0);
         emit ZeroLine(rateSetter);
     }

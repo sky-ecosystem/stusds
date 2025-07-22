@@ -26,9 +26,9 @@ import { UsdsMock } from "test/mocks/UsdsMock.sol";
 import { UsdsJoinMock } from "test/mocks/UsdsJoinMock.sol";
 import { ClipMock } from "test/mocks/ClipMock.sol";
 
-import { YUsds } from "src/YUsds.sol";
+import { StUsds } from "src/StUsds.sol";
 
-contract YUsdsERC4626Test is ERC4626Test {
+contract StUsdsERC4626Test is ERC4626Test {
 
     using stdStorage for StdStorage;
 
@@ -38,7 +38,7 @@ contract YUsdsERC4626Test is ERC4626Test {
     UsdsJoinMock usdsJoin;
     ClipMock clip;
 
-    YUsds yUsds;
+    StUsds stUsds;
 
     uint256 constant private RAY = 10**27;
 
@@ -52,21 +52,21 @@ contract YUsdsERC4626Test is ERC4626Test {
         usds.rely(address(usdsJoin));
         vat.suck(address(123), address(usdsJoin), 100_000_000_000 * 10 ** 45);
 
-        yUsds = YUsds(address(new ERC1967Proxy(address(new YUsds(address(usdsJoin), address(jug), address(clip), address(0))), abi.encodeCall(YUsds.initialize, ()))));
-        vat.rely(address(yUsds));
+        stUsds = StUsds(address(new ERC1967Proxy(address(new StUsds(address(usdsJoin), address(jug), address(clip), address(0))), abi.encodeCall(StUsds.initialize, ()))));
+        vat.rely(address(stUsds));
 
-        yUsds.file("ysr", 1000000001547125957863212448);
-        yUsds.file("cap", type(uint256).max);
+        stUsds.file("str", 1000000001547125957863212448);
+        stUsds.file("cap", type(uint256).max);
 
         vat.hope(address(usdsJoin));
 
         vm.warp(100 days);
-        yUsds.drip();
+        stUsds.drip();
 
-        assertGt(yUsds.chi(), RAY);
+        assertGt(stUsds.chi(), RAY);
 
         _underlying_ = address(usds);
-        _vault_ = address(yUsds);
+        _vault_ = address(stUsds);
         _delta_ = 0;
         _vaultMayBeEmpty = true;
         _unlimitedAmount = false;
@@ -77,7 +77,7 @@ contract YUsdsERC4626Test is ERC4626Test {
         for (uint256 i = 0; i < N; i++) {
             init.share[i] %= 1_000_000_000 ether;
             init.asset[i] %= 1_000_000_000 ether;
-            vm.assume(init.user[i] != address(0) && init.user[i] != address(yUsds));
+            vm.assume(init.user[i] != address(0) && init.user[i] != address(stUsds));
         }
         super.setUpVault(init);
     }
@@ -88,19 +88,19 @@ contract YUsdsERC4626Test is ERC4626Test {
         init.yield %= 1_000_000_000 ether;
         uint256 gain = uint256(init.yield);
 
-        uint256 supply = yUsds.totalSupply();
+        uint256 supply = stUsds.totalSupply();
         if (supply > 0) {
-            uint256 nChi = gain * RAY / supply + yUsds.chi();
+            uint256 nChi = gain * RAY / supply + stUsds.chi();
             uint256 chiRho = (block.timestamp << 192) + nChi;
             vm.store(
-                address(yUsds),
+                address(stUsds),
                 bytes32(uint256(5)),
                 bytes32(chiRho)
             );
-            assertEq(uint256(yUsds.chi()), nChi);
-            assertEq(uint256(yUsds.rho()), block.timestamp);
-            vat.suck(address(yUsds.vow()), address(this), gain * RAY);
-            usdsJoin.exit(address(yUsds), gain);
+            assertEq(uint256(stUsds.chi()), nChi);
+            assertEq(uint256(stUsds.rho()), block.timestamp);
+            vat.suck(address(stUsds.vow()), address(this), gain * RAY);
+            usdsJoin.exit(address(stUsds), gain);
         }
     }
 

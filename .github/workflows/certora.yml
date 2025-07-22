@@ -9,8 +9,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        yusds:
-          - yusds
+        stusds:
+          - stusds
           - rate-setter
           - mom
 
@@ -43,7 +43,7 @@ jobs:
       - name: Install Certora
         run: pip3 install certora-cli-beta
 
-      - name: Verify ${{ matrix.yusds }}
-        run: make certora-${{ matrix.yusds }} results=1
+      - name: Verify ${{ matrix.stusds }}
+        run: make certora-${{ matrix.stusds }} results=1
         env:
           CERTORAKEY: ${{ secrets.CERTORAKEY }}

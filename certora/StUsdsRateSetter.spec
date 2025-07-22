@@ -1,6 +1,6 @@
-// YUsdsRateSetter.spec
+// StUsdsRateSetter.spec
 
-using YUsds as yusds;
+using StUsds as stusds;
 using Jug as jug;
 using ConvMock as conv;
 using Vat as vat;
@@ -10,7 +10,7 @@ methods {
     // storage variables
     function wards(address) external returns (uint256) envfree;
     function buds(address) external returns (uint256) envfree;
-    function ysrCfg() external returns (uint16, uint16, uint16) envfree;
+    function strCfg() external returns (uint16, uint16, uint16) envfree;
     function dutyCfg() external returns (uint16, uint16, uint16) envfree;
     function maxLine() external returns (uint256) envfree;
     function maxCap() external returns (uint256) envfree;
@@ -22,11 +22,11 @@ methods {
     //
     function jug.ilks(bytes32) external returns (uint256, uint256) envfree;
     function jug.wards(address) external returns (uint256) envfree;
-    function yusds.wards(address) external returns (uint256) envfree;
-    function yusds.rho() external returns (uint64) envfree;
-    function yusds.ysr() external returns (uint256) envfree;
-    function yusds.line() external returns (uint256) envfree;
-    function yusds.cap() external returns (uint256) envfree;
+    function stusds.wards(address) external returns (uint256) envfree;
+    function stusds.rho() external returns (uint64) envfree;
+    function stusds.str() external returns (uint256) envfree;
+    function stusds.line() external returns (uint256) envfree;
+    function stusds.cap() external returns (uint256) envfree;
     function conv.btor(uint256) external returns (uint256) envfree;
     function conv.rtob(uint256) external returns (uint256) envfree;
     //
@@ -41,7 +41,7 @@ function DueSummary() returns uint256 {
 definition RAY() returns mathint = 10^27;
 definition RAD() returns mathint = 10^45;
 
-invariant ysrMin_LessOrEqual_ysrMax() currentContract.ysrCfg.min <= currentContract.ysrCfg.max;
+invariant strMin_LessOrEqual_strMax() currentContract.strCfg.min <= currentContract.strCfg.max;
 invariant dutyMin_LessOrEqual_dutyMax() currentContract.dutyCfg.min <= currentContract.dutyCfg.max;
 
 // Verify no more entry points exist
@@ -67,8 +67,8 @@ rule storage_affected(method f) {
 
     mathint wardsBefore = wards(anyAddr);
     mathint budsBefore = buds(anyAddr);
-    mathint ysrMinBefore; mathint ysrMaxBefore; mathint ysrStepBefore;
-    ysrMinBefore, ysrMaxBefore, ysrStepBefore = ysrCfg();
+    mathint strMinBefore; mathint strMaxBefore; mathint strStepBefore;
+    strMinBefore, strMaxBefore, strStepBefore = strCfg();
     mathint dutyMinBefore; mathint dutyMaxBefore; mathint dutyStepBefore;
     dutyMinBefore, dutyMaxBefore, dutyStepBefore = dutyCfg();
     mathint maxLineBefore = maxLine();
@@ -82,8 +82,8 @@ rule storage_affected(method f) {
 
     mathint wardsAfter = wards(anyAddr);
     mathint budsAfter = buds(anyAddr);
-    mathint ysrMinAfter; mathint ysrMaxAfter; mathint ysrStepAfter;
-    ysrMinAfter, ysrMaxAfter, ysrStepAfter = ysrCfg();
+    mathint strMinAfter; mathint strMaxAfter; mathint strStepAfter;
+    strMinAfter, strMaxAfter, strStepAfter = strCfg();
     mathint dutyMinAfter; mathint dutyMaxAfter; mathint dutyStepAfter;
     dutyMinAfter, dutyMaxAfter, dutyStepAfter = dutyCfg();
     mathint maxLineAfter = maxLine();
@@ -94,9 +94,9 @@ rule storage_affected(method f) {
 
     assert wardsAfter != wardsBefore => f.selector == sig:rely(address).selector || f.selector == sig:deny(address).selector, "Assert 1";
     assert budsAfter != budsBefore => f.selector == sig:kiss(address).selector || f.selector == sig:diss(address).selector, "Assert 2";
-    assert ysrMinAfter != ysrMinBefore => f.selector == sig:file(bytes32, bytes32, uint256).selector, "Assert 3";
-    assert ysrMaxAfter != ysrMaxBefore => f.selector == sig:file(bytes32, bytes32, uint256).selector, "Assert 4";
-    assert ysrStepAfter != ysrStepBefore => f.selector == sig:file(bytes32, bytes32, uint256).selector, "Assert 5";
+    assert strMinAfter != strMinBefore => f.selector == sig:file(bytes32, bytes32, uint256).selector, "Assert 3";
+    assert strMaxAfter != strMaxBefore => f.selector == sig:file(bytes32, bytes32, uint256).selector, "Assert 4";
+    assert strStepAfter != strStepBefore => f.selector == sig:file(bytes32, bytes32, uint256).selector, "Assert 5";
     assert dutyMinAfter != dutyMinBefore => f.selector == sig:file(bytes32, bytes32, uint256).selector, "Assert 6";
     assert dutyMaxAfter != dutyMaxBefore => f.selector == sig:file(bytes32, bytes32, uint256).selector, "Assert 7";
     assert dutyStepAfter != dutyStepBefore => f.selector == sig:file(bytes32, bytes32, uint256).selector, "Assert 8";
@@ -296,32 +296,32 @@ rule file_id(bytes32 id, bytes32 what, uint256 data) {
     env e;
 
     bytes32 ilk = ilk();
-    require ilk != to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000);
+    require ilk != to_bytes32(0x5354520000000000000000000000000000000000000000000000000000000000);
 
-    mathint ysrMinBefore; mathint ysrMaxBefore; mathint ysrStepBefore;
-    ysrMinBefore, ysrMaxBefore, ysrStepBefore = ysrCfg();
+    mathint strMinBefore; mathint strMaxBefore; mathint strStepBefore;
+    strMinBefore, strMaxBefore, strStepBefore = strCfg();
     mathint dutyMinBefore; mathint dutyMaxBefore; mathint dutyStepBefore;
     dutyMinBefore, dutyMaxBefore, dutyStepBefore = dutyCfg();
 
     file(e, id, what, data);
 
-    mathint ysrMinAfter; mathint ysrMaxAfter; mathint ysrStepAfter;
-    ysrMinAfter, ysrMaxAfter, ysrStepAfter = ysrCfg();
+    mathint strMinAfter; mathint strMaxAfter; mathint strStepAfter;
+    strMinAfter, strMaxAfter, strStepAfter = strCfg();
     mathint dutyMinAfter; mathint dutyMaxAfter; mathint dutyStepAfter;
     dutyMinAfter, dutyMaxAfter, dutyStepAfter = dutyCfg();
 
-    assert id == to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000) &&
-           what == to_bytes32(0x6d696e0000000000000000000000000000000000000000000000000000000000) => ysrMinAfter == to_mathint(data), "Assert 1";
-    assert id != to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000) ||
-           what != to_bytes32(0x6d696e0000000000000000000000000000000000000000000000000000000000) => ysrMinAfter == ysrMinBefore, "Assert 2";
-    assert id == to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000) &&
-           what == to_bytes32(0x6d61780000000000000000000000000000000000000000000000000000000000) => ysrMaxAfter == to_mathint(data), "Assert 3";
-    assert id != to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000) ||
-           what != to_bytes32(0x6d61780000000000000000000000000000000000000000000000000000000000) => ysrMaxAfter == ysrMaxBefore, "Assert 4";
-    assert id == to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000) &&
-           what == to_bytes32(0x7374657000000000000000000000000000000000000000000000000000000000) => ysrStepAfter == to_mathint(data), "Assert 5";
-    assert id != to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000) ||
-           what != to_bytes32(0x7374657000000000000000000000000000000000000000000000000000000000) => ysrStepAfter == ysrStepBefore, "Assert 6";
+    assert id == to_bytes32(0x5354520000000000000000000000000000000000000000000000000000000000) &&
+           what == to_bytes32(0x6d696e0000000000000000000000000000000000000000000000000000000000) => strMinAfter == to_mathint(data), "Assert 1";
+    assert id != to_bytes32(0x5354520000000000000000000000000000000000000000000000000000000000) ||
+           what != to_bytes32(0x6d696e0000000000000000000000000000000000000000000000000000000000) => strMinAfter == strMinBefore, "Assert 2";
+    assert id == to_bytes32(0x5354520000000000000000000000000000000000000000000000000000000000) &&
+           what == to_bytes32(0x6d61780000000000000000000000000000000000000000000000000000000000) => strMaxAfter == to_mathint(data), "Assert 3";
+    assert id != to_bytes32(0x5354520000000000000000000000000000000000000000000000000000000000) ||
+           what != to_bytes32(0x6d61780000000000000000000000000000000000000000000000000000000000) => strMaxAfter == strMaxBefore, "Assert 4";
+    assert id == to_bytes32(0x5354520000000000000000000000000000000000000000000000000000000000) &&
+           what == to_bytes32(0x7374657000000000000000000000000000000000000000000000000000000000) => strStepAfter == to_mathint(data), "Assert 5";
+    assert id != to_bytes32(0x5354520000000000000000000000000000000000000000000000000000000000) ||
+           what != to_bytes32(0x7374657000000000000000000000000000000000000000000000000000000000) => strStepAfter == strStepBefore, "Assert 6";
     assert id == ilk &&
            what == to_bytes32(0x6d696e0000000000000000000000000000000000000000000000000000000000) => dutyMinAfter == to_mathint(data), "Assert 7";
     assert id != ilk ||
@@ -341,31 +341,31 @@ rule file_id_revert(bytes32 id, bytes32 what, uint256 data) {
     env e;
 
     bytes32 ilk = ilk();
-    require ilk != to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000);
+    require ilk != to_bytes32(0x5354520000000000000000000000000000000000000000000000000000000000);
 
     mathint wardsSender = wards(e.msg.sender);
-    mathint ysrMin; mathint ysrMax; mathint a;
-    ysrMin, ysrMax, a = ysrCfg();
+    mathint strMin; mathint strMax; mathint a;
+    strMin, strMax, a = strCfg();
     mathint dutyMin; mathint dutyMax;
     dutyMin, dutyMax, a = dutyCfg();
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
-    bool revert3 = id != to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000) &&
+    bool revert3 = id != to_bytes32(0x5354520000000000000000000000000000000000000000000000000000000000) &&
                    id != ilk;
     bool revert4 = to_mathint(data) > max_uint16;
     bool revert5 = what != to_bytes32(0x6d696e0000000000000000000000000000000000000000000000000000000000) &&
                    what != to_bytes32(0x6d61780000000000000000000000000000000000000000000000000000000000) &&
                    what != to_bytes32(0x7374657000000000000000000000000000000000000000000000000000000000);
-    bool revert6 = id == to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000) &&
+    bool revert6 = id == to_bytes32(0x5354520000000000000000000000000000000000000000000000000000000000) &&
                    what == to_bytes32(0x6d696e0000000000000000000000000000000000000000000000000000000000) &&
-                   to_mathint(data) > ysrMax;
+                   to_mathint(data) > strMax;
     bool revert7 = id == ilk &&
                    what == to_bytes32(0x6d696e0000000000000000000000000000000000000000000000000000000000) &&
                    to_mathint(data) > dutyMax;
-    bool revert8 = id == to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000) &&
+    bool revert8 = id == to_bytes32(0x5354520000000000000000000000000000000000000000000000000000000000) &&
                    what == to_bytes32(0x6d61780000000000000000000000000000000000000000000000000000000000) &&
-                   to_mathint(data) < ysrMin;
+                   to_mathint(data) < strMin;
     bool revert9 = id == ilk &&
                    what == to_bytes32(0x6d61780000000000000000000000000000000000000000000000000000000000) &&
                    to_mathint(data) < dutyMin;
@@ -378,43 +378,43 @@ rule file_id_revert(bytes32 id, bytes32 what, uint256 data) {
 }
 
 // Verify correct storage changes for non reverting set
-rule set(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
+rule set(uint256 strBps, uint256 dutyBps, uint256 line, uint256 cap) {
     env e;
     bytes32 ilk = ilk();
-    require ilk != to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000);
+    require ilk != to_bytes32(0x5354520000000000000000000000000000000000000000000000000000000000);
 
-    mathint rhoBefore = yusds.rho();
+    mathint rhoBefore = stusds.rho();
     mathint jRhoBefore; mathint a;
     a, jRhoBefore = jug.ilks(ilk);
 
-    mathint ysrRAY = conv.btor(ysrBps);
+    mathint strRAY = conv.btor(strBps);
     mathint dutyRAY = conv.btor(dutyBps);
 
-    set(e, ysrBps, dutyBps, line, cap);
+    set(e, strBps, dutyBps, line, cap);
 
-    mathint ysrAfter = yusds.ysr();
-    mathint rhoAfter = yusds.rho();
+    mathint strAfter = stusds.str();
+    mathint rhoAfter = stusds.rho();
     mathint dutyAfter; mathint jRhoAfter;
     dutyAfter, jRhoAfter = jug.ilks(ilk);
-    mathint lineAfter = yusds.line();
-    mathint capAfter = yusds.cap();
+    mathint lineAfter = stusds.line();
+    mathint capAfter = stusds.cap();
 
     assert rhoAfter == e.block.timestamp, "Assert 1";
-    assert ysrAfter == ysrRAY, "Assert 2";
+    assert strAfter == strRAY, "Assert 2";
     assert jRhoAfter == e.block.timestamp, "Assert 3";
     assert dutyAfter == dutyRAY, "Assert 4";
     assert lineAfter == line, "Assert 5";
     assert capAfter == cap, "Assert 6";
-    satisfy rhoBefore < rhoAfter, "Satisfy 1"; // Proves that yusds.drip() gets called
+    satisfy rhoBefore < rhoAfter, "Satisfy 1"; // Proves that stusds.drip() gets called
     satisfy jRhoBefore < jRhoAfter, "Satisfy 2"; // Proves that jug.drip(ilk) gets called
 }
 
 // Verify revert rules on set
-rule set_revert(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
+rule set_revert(uint256 strBps, uint256 dutyBps, uint256 line, uint256 cap) {
     env e;
 
     bytes32 ilk = ilk();
-    require ilk != to_bytes32(0x5953520000000000000000000000000000000000000000000000000000000000);
+    require ilk != to_bytes32(0x5354520000000000000000000000000000000000000000000000000000000000);
 
     mathint budsSender = buds(e.msg.sender);
     mathint bad = bad();
@@ -422,29 +422,29 @@ rule set_revert(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
     mathint maxCap = maxCap();
     mathint tau = tau();
     mathint toc = toc();
-    mathint ysrMin; mathint ysrMax; mathint ysrStep;
-    ysrMin, ysrMax, ysrStep = ysrCfg();
+    mathint strMin; mathint strMax; mathint strStep;
+    strMin, strMax, strStep = strCfg();
     mathint dutyMin; mathint dutyMax; mathint dutyStep;
     dutyMin, dutyMax, dutyStep = dutyCfg();
 
-    mathint rho = yusds.rho();
-    uint256 ysr = yusds.ysr();
+    mathint rho = stusds.rho();
+    uint256 str = stusds.str();
     uint256 duty; mathint jRho;
     duty, jRho = jug.ilks(ilk);
 
-    mathint ysrOldBps = conv.rtob(ysr) < ysrMin ? ysrMin : (conv.rtob(ysr) > ysrMax ? ysrMax : conv.rtob(ysr));
+    mathint strOldBps = conv.rtob(str) < strMin ? strMin : (conv.rtob(str) > strMax ? strMax : conv.rtob(str));
     mathint dutyOldBps = conv.rtob(duty) < dutyMin ? dutyMin : (conv.rtob(duty) > dutyMax ? dutyMax : conv.rtob(duty));
     mathint dutyDelta = dutyBps > dutyOldBps ? dutyBps - dutyOldBps : dutyOldBps - dutyBps;
-    mathint ysrDelta = ysrBps > ysrOldBps ? ysrBps - ysrOldBps : ysrOldBps - ysrBps;
+    mathint strDelta = strBps > strOldBps ? strBps - strOldBps : strOldBps - strBps;
 
-    mathint ysrRAY = conv.btor(ysrBps);
+    mathint strRAY = conv.btor(strBps);
     mathint dutyRAY = conv.btor(dutyBps);
 
-    requireInvariant ysrMin_LessOrEqual_ysrMax;
+    requireInvariant strMin_LessOrEqual_strMax;
     requireInvariant dutyMin_LessOrEqual_dutyMax;
 
     // Happening in init scripts
-    require yusds.wards(currentContract) == 1;
+    require stusds.wards(currentContract) == 1;
     require jug.wards(currentContract) == 1;
     // Contracts behaviour
     require rho <= e.block.timestamp && jRho <= e.block.timestamp;
@@ -458,11 +458,11 @@ rule set_revert(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
     bool revert5  = e.block.timestamp < tau + toc;
     bool revert6  = line > maxLine;
     bool revert7  = cap > maxCap;
-    bool revert8  = ysrStep == 0;
-    bool revert9  = ysrBps < ysrMin;
-    bool revert10 = ysrBps > ysrMax;
-    bool revert11 = ysrDelta > ysrStep;
-    bool revert12 = ysrRAY < RAY(); // This actually doesn't trigger as conv used won't return that value
+    bool revert8  = strStep == 0;
+    bool revert9  = strBps < strMin;
+    bool revert10 = strBps > strMax;
+    bool revert11 = strDelta > strStep;
+    bool revert12 = strRAY < RAY(); // This actually doesn't trigger as conv used won't return that value
     bool revert13 = dutyStep == 0;
     bool revert14 = dutyBps < dutyMin;
     bool revert15 = dutyBps > dutyMax;
@@ -472,10 +472,10 @@ rule set_revert(uint256 ysrBps, uint256 dutyBps, uint256 line, uint256 cap) {
     storage initial = lastStorage;
 
     // Filter out all the reverts happening in both drip calls
-    yusds.drip(e);
+    stusds.drip(e);
     jug.drip(e, ilk);
     
-    set@withrevert(e, ysrBps, dutyBps, line, cap) at initial;
+    set@withrevert(e, strBps, dutyBps, line, cap) at initial;
 
     assert lastReverted <=> revert1  || revert2  || revert3  ||
                             revert4  || revert5  || revert6  ||
