@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// UsdsJoin.sol -- Usds adapter
-
 // Copyright (C) 2018 Rain <rainbreak@riseup.net>
 // Copyright (C) 2022 Dai Foundation
 //

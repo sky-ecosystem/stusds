@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// SUsds.sol
+/// StUsds.sol
 
 // Copyright (C) 2017, 2018, 2019 dbrock, rain, mrchico
 // Copyright (C) 2021 Dai Foundation
@@ -30,22 +30,36 @@ interface IERC1271 {
 }
 
 interface VatLike {
+    function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
+    function file(bytes32, bytes32, uint256) external;
     function hope(address) external;
     function suck(address, address, uint256) external;
+}
+
+interface JugLike {
+    function ilks(bytes32) external view returns (uint256, uint256);
+    function drip(bytes32) external returns (uint256);
+}
+
+interface ClipLike {
+    function ilk() external view returns (bytes32);
+    function Due() external view returns (uint256);
 }
 
 interface UsdsJoinLike {
     function vat() external view returns (address);
     function usds() external view returns (address);
+    function join(address, uint256) external;
     function exit(address, uint256) external;
 }
 
 interface UsdsLike {
+    function approve(address, uint256) external;
     function transfer(address, uint256) external;
     function transferFrom(address, address, uint256) external;
 }
 
-contract SUsds is UUPSUpgradeable {
+contract StUsds is UUPSUpgradeable {
 
     // --- Storage Variables ---
 
@@ -59,13 +73,15 @@ contract SUsds is UUPSUpgradeable {
     // Savings yield
     uint192 public chi;   // The Rate Accumulator  [ray]
     uint64  public rho;   // Time of last drip     [unix epoch time]
-    uint256 public ssr;   // The USDS Savings Rate [ray]
+    uint256 public str;   // The staked usds rate  [ray]
+    uint256 public cap;   // Supply max deposits   [wad]
+    uint256 public line;  // Borrow max ceiling    [rad]
 
     // --- Constants ---
 
     // ERC20
-    string  public constant name     = "Savings USDS";
-    string  public constant symbol   = "sUSDS";
+    string  public constant name     = "Staked USDS";
+    string  public constant symbol   = "stUSDS";
     string  public constant version  = "1";
     uint8   public constant decimals = 18;
     // Math
@@ -78,8 +94,11 @@ contract SUsds is UUPSUpgradeable {
     // Savings yield
     UsdsJoinLike public immutable usdsJoin;
     VatLike      public immutable vat;
+    JugLike      public immutable jug;
+    ClipLike     public immutable clip;
     UsdsLike     public immutable usds;
     address      public immutable vow;
+    bytes32      public immutable ilk;
 
     // --- Events ---
 
@@ -87,6 +106,7 @@ contract SUsds is UUPSUpgradeable {
     event Rely(address indexed usr);
     event Deny(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
+    event Cut(uint256 assets, uint256 oldChi, uint256 newChi);
     // ERC20
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Transfer(address indexed from, address indexed to, uint256 value);
@@ -101,19 +121,22 @@ contract SUsds is UUPSUpgradeable {
     // --- Modifiers ---
 
     modifier auth {
-        require(wards[msg.sender] == 1, "SUsds/not-authorized");
+        require(wards[msg.sender] == 1, "StUsds/not-authorized");
         _;
     }
 
     // --- Constructor ---
 
-    constructor(address usdsJoin_, address vow_) {
+    constructor(address usdsJoin_, address jug_, address clip_, address vow_) {
         _disableInitializers(); // Avoid initializing in the context of the implementation
 
         usdsJoin = UsdsJoinLike(usdsJoin_);
         vat = VatLike(UsdsJoinLike(usdsJoin_).vat());
+        jug = JugLike(jug_);
+        clip = ClipLike(clip_);
         usds = UsdsLike(UsdsJoinLike(usdsJoin_).usds());
         vow = vow_;
+        ilk = clip.ilk();
     }
 
     // --- Upgradability ---
@@ -123,8 +146,9 @@ contract SUsds is UUPSUpgradeable {
 
         chi = uint192(RAY);
         rho = uint64(block.timestamp);
-        ssr = RAY;
+        str = RAY;
         vat.hope(address(usdsJoin));
+        usds.approve(address(usdsJoin), type(uint256).max);
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
@@ -188,6 +212,16 @@ contract SUsds is UUPSUpgradeable {
         }
     }
 
+    function _subcap(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        unchecked {
+            z = x > y ? x - y : 0;
+        }
+    }
+
+    function _min(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = x < y ? x : y;
+    }
+
     // --- Admin external functions ---
 
     function rely(address usr) external auth {
@@ -201,24 +235,48 @@ contract SUsds is UUPSUpgradeable {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "ssr") {
-            require(data >= RAY, "SUsds/wrong-ssr-value");
-            require(rho == block.timestamp, "SUsds/chi-not-up-to-date");
-            ssr = data;
-        } else revert("SUsds/file-unrecognized-param");
+        if (what == "str") {
+            require(data >= RAY, "StUsds/wrong-str-value");
+            require(rho == block.timestamp, "StUsds/chi-not-up-to-date");
+            str = data;
+        } else if (what == "cap") {
+            cap = data;
+        } else if (what == "line") {
+            line = data; // If it is desired the new value has an immediate effect on vat[ilk].line, then call drip() right after
+        } else revert("StUsds/file-unrecognized-param");
         emit File(what, data);
+    }
+
+    function cut(uint256 rad) external auth {
+        uint256 oldChi = _drip();
+        uint256 totalAssets_ = totalSupply * oldChi / RAY;
+        uint256 assets = _min(_divup(rad, RAY), totalAssets_);
+        uint256 newChi = chi = totalAssets_ > 0
+                               ? uint192(oldChi * (totalAssets_ - assets) / totalAssets_) // safe as newChi <= oldChi
+                               : 0;
+        usdsJoin.join(vow, assets);
+        _setLine();
+        emit Cut(assets, oldChi, newChi);
+    }
+
+    // --- Set ilk debt ceiling ---
+
+    function _setLine() internal {
+        // It is assumed that general vat.Line will be set to a relatively
+        // big number that won't require any constant update
+        vat.file(ilk, "line", _min(line, _subcap(totalSupply * chi, clip.Due())));
     }
 
     // --- Savings Rate Accumulation external/internal function ---
 
-    function drip() public returns (uint256 nChi) {
+    function _drip() internal returns (uint256 nChi) {
         (uint256 chi_, uint256 rho_) = (chi, rho);
         uint256 diff;
         if (block.timestamp > rho_) {
-            nChi = _rpow(ssr, block.timestamp - rho_) * chi_ / RAY;
+            nChi = _rpow(str, block.timestamp - rho_) * chi_ / RAY;
             uint256 totalSupply_ = totalSupply;
             diff = totalSupply_ * nChi / RAY - totalSupply_ * chi_ / RAY;
-            vat.suck(address(vow), address(this), diff * RAY);
+            vat.suck(vow, address(this), diff * RAY);
             usdsJoin.exit(address(this), diff);
             chi = uint192(nChi); // safe as nChi is limited to maxUint256/RAY (which is < maxUint192)
             rho = uint64(block.timestamp);
@@ -228,12 +286,17 @@ contract SUsds is UUPSUpgradeable {
         emit Drip(nChi, diff);
     }
 
+    function drip() external returns (uint256 nChi) {
+        nChi = _drip();
+        _setLine();
+    }
+
     // --- ERC20 Mutations ---
 
     function transfer(address to, uint256 value) external returns (bool) {
-        require(to != address(0) && to != address(this), "SUsds/invalid-address");
+        require(to != address(0) && to != address(this), "StUsds/invalid-address");
         uint256 balance = balanceOf[msg.sender];
-        require(balance >= value, "SUsds/insufficient-balance");
+        require(balance >= value, "StUsds/insufficient-balance");
 
         unchecked {
             balanceOf[msg.sender] = balance - value;
@@ -246,14 +309,14 @@ contract SUsds is UUPSUpgradeable {
     }
 
     function transferFrom(address from, address to, uint256 value) external returns (bool) {
-        require(to != address(0) && to != address(this), "SUsds/invalid-address");
+        require(to != address(0) && to != address(this), "StUsds/invalid-address");
         uint256 balance = balanceOf[from];
-        require(balance >= value, "SUsds/insufficient-balance");
+        require(balance >= value, "StUsds/insufficient-balance");
 
         if (from != msg.sender) {
             uint256 allowed = allowance[from][msg.sender];
             if (allowed != type(uint256).max) {
-                require(allowed >= value, "SUsds/insufficient-allowance");
+                require(allowed >= value, "StUsds/insufficient-allowance");
 
                 unchecked {
                     allowance[from][msg.sender] = allowed - value;
@@ -282,14 +345,18 @@ contract SUsds is UUPSUpgradeable {
     // --- Mint/Burn Internal ---
 
     function _mint(uint256 assets, uint256 shares, address receiver) internal {
-        require(receiver != address(0) && receiver != address(this), "SUsds/invalid-address");
+        require(receiver != address(0) && receiver != address(this), "StUsds/invalid-address");
+        uint256 totalSupply_ = totalSupply;
+        require(totalSupply_ * chi / RAY + assets <= cap, "StUsds/mint-over-supply-cap");
 
         usds.transferFrom(msg.sender, address(this), assets);
 
         unchecked {
             balanceOf[receiver] = balanceOf[receiver] + shares; // note: we don't need an overflow check here b/c balanceOf[receiver] <= totalSupply
-            totalSupply = totalSupply + shares; // note: we don't need an overflow check here b/c shares totalSupply will always be <= usds totalSupply
         }
+        totalSupply = totalSupply_ + shares;
+
+        _setLine();
 
         emit Deposit(msg.sender, receiver, assets, shares);
         emit Transfer(address(0), receiver, shares);
@@ -297,12 +364,16 @@ contract SUsds is UUPSUpgradeable {
 
     function _burn(uint256 assets, uint256 shares, address receiver, address owner) internal {
         uint256 balance = balanceOf[owner];
-        require(balance >= shares, "SUsds/insufficient-balance");
+        require(balance >= shares, "StUsds/insufficient-balance");
+
+        uint256 rate = jug.drip(ilk);
+        (uint256 Art,,,,) = vat.ilks(ilk);
+        require(Art * rate + clip.Due() + assets * RAY <= totalSupply * chi, "StUsds/insufficient-unused-funds");
 
         if (owner != msg.sender) {
             uint256 allowed = allowance[owner][msg.sender];
             if (allowed != type(uint256).max) {
-                require(allowed >= shares, "SUsds/insufficient-allowance");
+                require(allowed >= shares, "StUsds/insufficient-allowance");
 
                 unchecked {
                     allowance[owner][msg.sender] = allowed - shares;
@@ -314,6 +385,8 @@ contract SUsds is UUPSUpgradeable {
             balanceOf[owner] = balance - shares; // note: we don't need overflow checks b/c require(balance >= shares) and balance <= totalSupply
             totalSupply      = totalSupply - shares;
         }
+
+        _setLine();
 
         usds.transfer(receiver, assets);
 
@@ -332,17 +405,25 @@ contract SUsds is UUPSUpgradeable {
     }
 
     function convertToShares(uint256 assets) public view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ssr, block.timestamp - rho) * chi / RAY : chi;
-        return assets * RAY / chi_;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
+        return chi_ > 0 ? assets * RAY / chi_ : 0;
     }
 
     function convertToAssets(uint256 shares) public view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ssr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
         return shares * chi_ / RAY;
     }
 
-    function maxDeposit(address) external pure returns (uint256) {
-        return type(uint256).max;
+    function maxDeposit(address) external view returns (uint256) {
+        uint256 cap_ = cap;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
+        if (chi_ == 0) {
+            return 0;
+        } else if (cap_ < type(uint256).max) {
+            return _subcap(cap_, totalSupply * chi_ / RAY);
+        } else {
+            return type(uint256).max;
+        }
     }
 
     function previewDeposit(uint256 assets) external view returns (uint256) {
@@ -350,7 +431,7 @@ contract SUsds is UUPSUpgradeable {
     }
 
     function deposit(uint256 assets, address receiver) public returns (uint256 shares) {
-        shares = assets * RAY / drip();
+        shares = assets * RAY / _drip();
         _mint(assets, shares, receiver);
     }
 
@@ -359,17 +440,26 @@ contract SUsds is UUPSUpgradeable {
         emit Referral(referral, receiver, assets, shares);
     }
 
-    function maxMint(address) external pure returns (uint256) {
-        return type(uint256).max;
+    function maxMint(address) external view returns (uint256) {
+        uint256 cap_ = cap;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
+        if (chi_ == 0) {
+            return 0;
+        } else if (cap_ < type(uint256).max) {
+            return _subcap(cap_, totalSupply * chi_ / RAY) * RAY / chi_;
+        } else {
+            return type(uint256).max;
+        }
     }
 
     function previewMint(uint256 shares) external view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ssr, block.timestamp - rho) * chi / RAY : chi;
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
         return _divup(shares * chi_, RAY);
     }
 
     function mint(uint256 shares, address receiver) public returns (uint256 assets) {
-        assets = _divup(shares * drip(), RAY);
+        assets = _divup(shares * _drip(), RAY);
+        require(assets > 0, "StUsds/assets-zero");
         _mint(assets, shares, receiver);
     }
 
@@ -379,21 +469,39 @@ contract SUsds is UUPSUpgradeable {
     }
 
     function maxWithdraw(address owner) external view returns (uint256) {
-        return convertToAssets(balanceOf[owner]);
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
+        (uint256 Art, uint256 rate,,,) = vat.ilks(ilk);
+        (uint256 duty_, uint256 rho_) = jug.ilks(ilk);
+        rate = (block.timestamp > rho_) ? _rpow(duty_, block.timestamp - rho_) * rate / RAY : rate;
+
+        return _min(
+            convertToAssets(balanceOf[owner]),
+            _subcap(totalSupply * chi_, Art * rate + clip.Due()) / RAY
+        );
     }
 
     function previewWithdraw(uint256 assets) external view returns (uint256) {
-        uint256 chi_ = (block.timestamp > rho) ? _rpow(ssr, block.timestamp - rho) * chi / RAY : chi;
-        return _divup(assets * RAY, chi_);
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
+        return chi_ > 0 ? _divup(assets * RAY, chi_) : 0;
     }
 
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares) {
-        shares = _divup(assets * RAY, drip());
+        shares = _divup(assets * RAY, _drip());
         _burn(assets, shares, receiver, owner);
     }
 
     function maxRedeem(address owner) external view returns (uint256) {
-        return balanceOf[owner];
+        uint256 chi_ = (block.timestamp > rho) ? _rpow(str, block.timestamp - rho) * chi / RAY : chi;
+        (uint256 Art, uint256 rate,,,) = vat.ilks(ilk);
+        (uint256 duty_, uint256 rho_) = jug.ilks(ilk);
+        rate = (block.timestamp > rho_) ? _rpow(duty_, block.timestamp - rho_) * rate / RAY : rate;
+
+        return chi_ > 0
+                    ? _min(
+                        balanceOf[owner],
+                        _subcap(totalSupply * chi_, Art * rate + clip.Due()) / chi_
+                    )
+                    : 0;
     }
 
     function previewRedeem(uint256 shares) external view returns (uint256) {
@@ -401,7 +509,8 @@ contract SUsds is UUPSUpgradeable {
     }
 
     function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets) {
-        assets = shares * drip() / RAY;
+        assets = shares * _drip() / RAY;
+        require(assets > 0, "StUsds/assets-zero");
         _burn(assets, shares, receiver, owner);
     }
 
@@ -443,8 +552,8 @@ contract SUsds is UUPSUpgradeable {
         uint256 deadline,
         bytes memory signature
     ) public {
-        require(block.timestamp <= deadline, "SUsds/permit-expired");
-        require(owner != address(0), "SUsds/invalid-owner");
+        require(block.timestamp <= deadline, "StUsds/permit-expired");
+        require(owner != address(0), "StUsds/invalid-owner");
 
         uint256 nonce;
         unchecked { nonce = nonces[owner]++; }
@@ -463,7 +572,7 @@ contract SUsds is UUPSUpgradeable {
                 ))
             ));
 
-        require(_isValidSignature(owner, digest, signature), "SUsds/invalid-permit");
+        require(_isValidSignature(owner, digest, signature), "StUsds/invalid-permit");
 
         allowance[owner][spender] = value;
         emit Approval(owner, spender, value);
