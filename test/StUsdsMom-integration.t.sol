@@ -76,14 +76,7 @@ contract StUsdsMomIntegrationTest is DssTest {
 
         ilk = stusds.ilk();
 
-        address[] memory buds = new address[](2);
-        buds[0] = bud;
-        buds[1] = bud2;
-
         vm.startPrank(pauseProxy);
-        for (uint256 i; i < buds.length; i ++) {
-            rateSetter.kiss(buds[i]);
-        }
         stusds.rely(address(mom));
         rateSetter.rely(address(mom));
         mom.setAuthority(dss.chainlog.getAddress("MCD_ADM"));
