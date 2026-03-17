@@ -1,5 +1,7 @@
 cache/
 out/
 broadcast/
+.env
+foundry.lock
 
 .certora_internal/

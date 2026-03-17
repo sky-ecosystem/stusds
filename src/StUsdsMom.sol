@@ -21,6 +21,7 @@ interface AuthorityLike {
 }
 
 interface StUsdsLike {
+    function drip() external returns (uint256 nChi);
     function file(bytes32, uint256) external;
 }
 
@@ -102,10 +103,12 @@ contract StUsdsMom {
         emit ZeroCap(rateSetter);
     }
 
-    // Consider also calling stusds.drip() or using the line-mom to stop borrowing immediately
+    // Sets the stUSDS line and the rate setter maxLine to zero, then calls
+    // `stusds.drip()` to immediately halt new Lockstake borrowing.
     function zeroLine(address rateSetter) external auth {
         stusds.file("line", 0);
         RateSetterLike(rateSetter).file("maxLine", 0);
+        stusds.drip();
         emit ZeroLine(rateSetter);
     }
 }
