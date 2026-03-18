@@ -21,6 +21,7 @@ import { DSTokenAbstract } from "dss-interfaces/Interfaces.sol";
 import { StUsds } from "src/StUsds.sol";
 import { StUsdsMom } from "src/StUsdsMom.sol";
 import { StUsdsRateSetter } from "src/StUsdsRateSetter.sol";
+import { ReplaceMomInstance, StUsdsInit } from "deploy/StUsdsInit.sol";
 
 interface ChiefLike {
     function hat() external view returns (address);
@@ -47,13 +48,11 @@ contract StUsdsMomIntegrationTest is DssTest {
     DSTokenAbstract     sky;
     StUsdsRateSetter    rateSetter;
     StUsds              stusds;
+    StUsdsMom           oldMom;
     StUsdsMom           mom;
     address             pauseProxy;
 
     bytes32 ilk;
-
-    address bud = address(0xb0d);
-    address bud2 = address(0xb0d2);
 
     event Draw(address indexed owner, uint256 indexed index, address to, uint256 wad);
     event ZeroLine(address indexed rateSetter);
@@ -70,24 +69,38 @@ contract StUsdsMomIntegrationTest is DssTest {
         sky = DSTokenAbstract(dss.chainlog.getAddress("SKY"));
         stusds = StUsds(dss.chainlog.getAddress("STUSDS"));
         rateSetter = StUsdsRateSetter(dss.chainlog.getAddress("STUSDS_RATE_SETTER"));
-
-        vm.prank(pauseProxy);
-        mom = new StUsdsMom(address(stusds));
-
+        oldMom = StUsdsMom(dss.chainlog.getAddress("STUSDS_MOM"));
         ilk = stusds.ilk();
 
         vm.startPrank(pauseProxy);
-        stusds.rely(address(mom));
-        rateSetter.rely(address(mom));
-        mom.setAuthority(dss.chainlog.getAddress("MCD_ADM"));
+        StUsdsInit.replaceMom(
+            dss,
+            ReplaceMomInstance({
+                stUsds: address(stusds),
+                rateSetter: address(rateSetter),
+                oldMom: address(oldMom)
+            }),
+            pauseProxy
+        );
         vm.stopPrank();
+
+        mom = StUsdsMom(dss.chainlog.getAddress("STUSDS_MOM"));
     }
 
-    function testSetupIsCorrect() public view {
+    function testSetup() public view {
         assertEq(ilk, engine.ilk());
+    }
+
+    function testReplaceMom() public view {
         assertEq(stusds.wards(address(mom)), 1);
         assertEq(rateSetter.wards(address(mom)), 1);
         assertEq(mom.authority(), dss.chainlog.getAddress("MCD_ADM"));
+        assertEq(dss.chainlog.getAddress("STUSDS_MOM"), address(mom));
+        assertEq(mom.owner(), pauseProxy);
+
+        assertNotEq(address(oldMom), address(mom));
+        assertEq(stusds.wards(address(oldMom)), 0);
+        assertEq(rateSetter.wards(address(oldMom)), 0);
     }
 
     function _checkZeroLine(address who) internal {

@@ -18,6 +18,7 @@ pragma solidity >=0.8.0;
 
 import { DssInstance } from "dss-test/MCD.sol";
 import { StUsdsInstance } from "./StUsdsInstance.sol";
+import { StUsdsMom } from "../src/StUsdsMom.sol";
 
 interface StUsdsLike {
     function version() external view returns (string memory);
@@ -30,6 +31,7 @@ interface StUsdsLike {
     function file(bytes32, uint256) external;
     function drip() external returns (uint256);
     function rely(address) external;
+    function deny(address usr) external;
 }
 
 interface AutoLineLike {
@@ -44,6 +46,7 @@ interface RateSetterLike {
     function file(bytes32, bytes32, uint256) external;
     function kiss(address) external;
     function rely(address) external;
+    function deny(address usr) external;
 }
 
 interface SPBEAMLike {
@@ -53,6 +56,7 @@ interface SPBEAMLike {
 interface StUsdsMomLike {
     function stusds() external view returns (address);
     function setAuthority(address) external;
+    function setOwner(address owner_) external;
 }
 
 struct StUsdsConfig {
@@ -72,6 +76,12 @@ struct StUsdsConfig {
     uint256   maxDutyBps;
     uint256   stepDutyBps;
     address[] buds;
+}
+
+struct ReplaceMomInstance {
+    address stUsds;
+    address rateSetter;
+    address oldMom;
 }
 
 library StUsdsInit {
@@ -140,5 +150,29 @@ library StUsdsInit {
         dss.chainlog.setAddress("STUSDS_IMP",         instance.stUsdsImp);
         dss.chainlog.setAddress("STUSDS_RATE_SETTER", instance.rateSetter);
         dss.chainlog.setAddress("STUSDS_MOM",         instance.mom);
+    }
+
+    function replaceMom(
+        DssInstance        memory dss,
+        ReplaceMomInstance memory instance,
+        address            owner
+    ) internal {
+        require(instance.stUsds     == dss.chainlog.getAddress("STUSDS"),             "StUsdsInit/stUsds-does-not-match");
+        require(instance.rateSetter == dss.chainlog.getAddress("STUSDS_RATE_SETTER"), "StUsdsInit/rateSetter-does-not-match");
+        require(instance.oldMom     == dss.chainlog.getAddress("STUSDS_MOM"),          "StUsdsInit/stUsdsMom-does-not-match");
+
+        address newMom = address(new StUsdsMom(instance.stUsds));
+
+        StUsdsMomLike(newMom).setOwner(owner);
+
+        // Mom Configuration
+        StUsdsLike(instance.stUsds).rely(newMom);
+        RateSetterLike(instance.rateSetter).rely(newMom);
+        StUsdsMomLike(newMom).setAuthority(dss.chainlog.getAddress("MCD_ADM"));
+
+        StUsdsLike(instance.stUsds).deny(instance.oldMom);
+        RateSetterLike(instance.rateSetter).deny(instance.oldMom);
+
+        dss.chainlog.setAddress("STUSDS_MOM", newMom);
     }
 }
