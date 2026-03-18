@@ -104,7 +104,7 @@ contract StUsdsMom {
     }
 
     // Sets the stUSDS line and the rate setter maxLine to zero, then calls
-    // `stusds.drip()` to immediately halt new LockStake borrowing.
+    // `stusds.drip()` to immediately halt LockStake borrowing.
     function zeroLine(address rateSetter) external auth {
         stusds.file("line", 0);
         RateSetterLike(rateSetter).file("maxLine", 0);
