@@ -113,7 +113,7 @@ contract StUsdsIntegrationTest is TokenFuzzChecks {
             str: 1000000001547125957863212448,
             cap: type(uint256).max,
             line: type(uint256).max,
-            tau: 0, // passnig zeros as RateSetter will not be used in this test
+            tau: 0, // passing zeros as RateSetter will not be used in this test
             maxLine: 0,
             maxCap: 0,
             maxDutyBps: 0,

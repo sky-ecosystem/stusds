@@ -21,7 +21,8 @@ import { DSTokenAbstract } from "dss-interfaces/Interfaces.sol";
 import { StUsds } from "src/StUsds.sol";
 import { StUsdsMom } from "src/StUsdsMom.sol";
 import { StUsdsRateSetter } from "src/StUsdsRateSetter.sol";
-import { ReplaceMomInstance, StUsdsInit } from "deploy/StUsdsInit.sol";
+import { StUsdsInit } from "deploy/StUsdsInit.sol";
+import { StUsdsDeploy } from "deploy/StUsdsDeploy.sol";
 
 interface ChiefLike {
     function hat() external view returns (address);
@@ -73,22 +74,18 @@ contract StUsdsMomIntegrationTest is DssTest {
         ilk = stusds.ilk();
 
         vm.startPrank(pauseProxy);
+        mom = StUsdsMom(StUsdsDeploy.deployMom(pauseProxy));
+
+        assertEq(mom.owner(), pauseProxy);
+        assertEq(mom.authority(), address(0));
+        assertEq(address(mom.stusds()), address(stusds));
+        assertEq(ilk, engine.ilk());
+
         StUsdsInit.replaceMom(
             dss,
-            ReplaceMomInstance({
-                stUsds: address(stusds),
-                rateSetter: address(rateSetter),
-                oldMom: address(oldMom)
-            }),
-            pauseProxy
+            address(mom)
         );
         vm.stopPrank();
-
-        mom = StUsdsMom(dss.chainlog.getAddress("STUSDS_MOM"));
-    }
-
-    function testSetup() public view {
-        assertEq(ilk, engine.ilk());
     }
 
     function testReplaceMom() public view {
@@ -101,6 +98,25 @@ contract StUsdsMomIntegrationTest is DssTest {
         assertNotEq(address(oldMom), address(mom));
         assertEq(stusds.wards(address(oldMom)), 0);
         assertEq(rateSetter.wards(address(oldMom)), 0);
+    }
+
+    function testRevertReplaceMomWithSameMom() public {
+        vm.startPrank(pauseProxy);
+        vm.expectRevert("StUsdsInit/same-mom");
+        this.replaceMomHelper(address(mom));
+        vm.stopPrank();
+    }
+
+    function testRevertWrongStUsds() public {
+        StUsdsMom badMom = new StUsdsMom(address(0x01));
+        vm.startPrank(pauseProxy);
+        vm.expectRevert("StUsdsInit/stusds-does-not-match");
+        this.replaceMomHelper(address(badMom));
+        vm.stopPrank();
+    }
+
+    function replaceMomHelper(address newMom) external {
+        StUsdsInit.replaceMom(dss, newMom);
     }
 
     function _checkZeroLine(address who) internal {
