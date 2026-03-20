@@ -146,13 +146,13 @@ library StUsdsInit {
 
     function replaceMom(
         DssInstance memory dss,
-        address newMom
+        address            newMom
     ) internal {
-        address stUsds = dss.chainlog.getAddress("STUSDS");
+        address stUsds     = dss.chainlog.getAddress("STUSDS");
         address rateSetter = dss.chainlog.getAddress("STUSDS_RATE_SETTER");
-        address oldMom = dss.chainlog.getAddress("STUSDS_MOM");
+        address oldMom     = dss.chainlog.getAddress("STUSDS_MOM");
 
-        require(newMom != oldMom, "StUsdsInit/same-mom");
+        require(newMom != oldMom,                         "StUsdsInit/same-mom");
         require(StUsdsMomLike(newMom).stusds() == stUsds, "StUsdsInit/stusds-does-not-match");
 
         // New Mom Configuration

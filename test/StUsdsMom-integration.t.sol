@@ -65,12 +65,13 @@ contract StUsdsMomIntegrationTest is DssTest {
         chief = ChiefLike(dss.chainlog.getAddress("MCD_ADM"));
 
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
-        engine = LockStakeEngineLike(dss.chainlog.getAddress("LOCKSTAKE_ENGINE"));
-        usds = UsdsLike(dss.chainlog.getAddress("USDS"));
-        sky = DSTokenAbstract(dss.chainlog.getAddress("SKY"));
-        stusds = StUsds(dss.chainlog.getAddress("STUSDS"));
+        engine     = LockStakeEngineLike(dss.chainlog.getAddress("LOCKSTAKE_ENGINE"));
+        usds       = UsdsLike(dss.chainlog.getAddress("USDS"));
+        sky        = DSTokenAbstract(dss.chainlog.getAddress("SKY"));
+        stusds     = StUsds(dss.chainlog.getAddress("STUSDS"));
         rateSetter = StUsdsRateSetter(dss.chainlog.getAddress("STUSDS_RATE_SETTER"));
-        oldMom = StUsdsMom(dss.chainlog.getAddress("STUSDS_MOM"));
+        oldMom     = StUsdsMom(dss.chainlog.getAddress("STUSDS_MOM"));
+
         ilk = stusds.ilk();
 
         vm.startPrank(pauseProxy);
@@ -96,14 +97,21 @@ contract StUsdsMomIntegrationTest is DssTest {
         assertEq(mom.owner(), pauseProxy);
 
         assertNotEq(address(oldMom), address(mom));
+
         assertEq(stusds.wards(address(oldMom)), 0);
         assertEq(rateSetter.wards(address(oldMom)), 0);
+        assertEq(oldMom.authority(), address(0));
+        assertEq(oldMom.owner(), address(0));
+    }
+
+    function __replaceMomHelper(address newMom) external {
+        StUsdsInit.replaceMom(dss, newMom);
     }
 
     function testRevertReplaceMomWithSameMom() public {
         vm.startPrank(pauseProxy);
         vm.expectRevert("StUsdsInit/same-mom");
-        this.replaceMomHelper(address(mom));
+        this.__replaceMomHelper(address(mom));
         vm.stopPrank();
     }
 
@@ -111,12 +119,8 @@ contract StUsdsMomIntegrationTest is DssTest {
         StUsdsMom badMom = new StUsdsMom(address(0x01));
         vm.startPrank(pauseProxy);
         vm.expectRevert("StUsdsInit/stusds-does-not-match");
-        this.replaceMomHelper(address(badMom));
+        this.__replaceMomHelper(address(badMom));
         vm.stopPrank();
-    }
-
-    function replaceMomHelper(address newMom) external {
-        StUsdsInit.replaceMom(dss, newMom);
     }
 
     function _checkZeroLine(address who) internal {
@@ -145,33 +149,37 @@ contract StUsdsMomIntegrationTest is DssTest {
     }
 
     function _lockOnStakeEngine() internal returns (address urn) {
-        deal(address(sky), address(this), 3_000_000 * 10**18, true);
+        uint256 lockAmount = 3_000_000 * WAD;
+        deal(address(sky), address(this), lockAmount, true);
         urn = engine.open(0);
-        sky.approve(address(engine), 3_000_000 * 10**18);
-        engine.lock(address(this), 0, 3_000_000 * 10**18, 5);
+        sky.approve(address(engine), lockAmount);
+        engine.lock(address(this), 0, lockAmount, 5);
         assertEq(_art(ilk, urn), 0);
     }
 
     function testDrawLockStake() public {
         address urn = _lockOnStakeEngine();
+        uint256 borrowAmount = 40_000 * WAD;
         vm.expectEmit(true, true, true, true);
-        emit Draw(address(this), 0, address(this), 40_000 * 10**18);
-        engine.draw(address(this), 0, address(this), 40_000 * 10**18);
-        assertApproxEqAbs(_art(ilk, urn) * _rate(ilk) / RAY, 40_000 * 10**18, 1);
-        assertEq(usds.balanceOf(address(this)), 40_000 * 10**18);
+        emit Draw(address(this), 0, address(this), borrowAmount);
+        engine.draw(address(this), 0, address(this), borrowAmount);
+        assertApproxEqAbs(_art(ilk, urn) * _rate(ilk) / RAY, borrowAmount, 1);
+        assertEq(usds.balanceOf(address(this)), borrowAmount);
     }
 
     function testRevertDrawAfterZeroLineHat() public {
         _lockOnStakeEngine();
         _zeroLineAsHat();
+        uint256 borrowAmount = 40_000 * WAD;
         vm.expectRevert("Vat/ceiling-exceeded");
-        engine.draw(address(this), 0, address(this), 40_000 * 10**18);
+        engine.draw(address(this), 0, address(this), borrowAmount);
     }
 
     function testRevertDrawAfterZeroLineOwner() public {
         _lockOnStakeEngine();
         _zeroLineAsOwner();
+        uint256 borrowAmount = 40_000 * WAD;
         vm.expectRevert("Vat/ceiling-exceeded");
-        engine.draw(address(this), 0, address(this), 40_000 * 10**18);
+        engine.draw(address(this), 0, address(this), borrowAmount);
     }
 }
