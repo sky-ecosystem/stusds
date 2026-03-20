@@ -28,17 +28,13 @@ methods {
     function _.diss(address) external => DISPATCHER(true);
     function _.file(bytes32, uint256) external => DISPATCHER(true);
     function _.canCall(address, address, bytes4) external => canCallSummary() expect bool;
-    function _.Due() external => DueSummary() expect uint256;
+    function _.Due() external => CONSTANT;
 }
 
 persistent ghost bool retCanCall;
 function canCallSummary() returns bool {
     env e;
     return retCanCall;
-}
-
-function DueSummary() returns uint256 {
-    return 0;
 }
 
 // Verify no more entry points exist
