@@ -104,6 +104,8 @@ contract StUsdsMomIntegrationTest is DssTest {
         assertEq(oldMom.owner(), address(0));
     }
 
+    // Expose the StUsdsInit library path through an external call, so revert
+    // assertions can target `replaceMom()`.
     function __replaceMomHelper(address newMom) external {
         StUsdsInit.replaceMom(dss, newMom);
     }
