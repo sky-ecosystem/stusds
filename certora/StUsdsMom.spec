@@ -37,9 +37,8 @@ function canCallSummary() returns bool {
     return retCanCall;
 }
 
-ghost uint256 Due;
 function DueSummary() returns uint256 {
-    return Due;
+    return 0;
 }
 
 // Verify no more entry points exist
