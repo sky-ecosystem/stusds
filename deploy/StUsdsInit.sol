@@ -151,6 +151,7 @@ library StUsdsInit {
         address stUsds     = dss.chainlog.getAddress("STUSDS");
         address rateSetter = dss.chainlog.getAddress("STUSDS_RATE_SETTER");
         address oldMom     = dss.chainlog.getAddress("STUSDS_MOM");
+        address chief      = dss.chainlog.getAddress("MCD_ADM");
 
         require(newMom != oldMom,                         "StUsdsInit/same-mom");
         require(StUsdsMomLike(newMom).stusds() == stUsds, "StUsdsInit/stusds-does-not-match");
@@ -158,14 +159,14 @@ library StUsdsInit {
         // New Mom Configuration
         StUsdsLike(stUsds).rely(newMom);
         RateSetterLike(rateSetter).rely(newMom);
-        StUsdsMomLike(newMom).setAuthority(dss.chainlog.getAddress("MCD_ADM"));
+        StUsdsMomLike(newMom).setAuthority(chief);
+
+        dss.chainlog.setAddress("STUSDS_MOM", newMom);
 
         // Old Mom Decommission
         StUsdsLike(stUsds).deny(oldMom);
         RateSetterLike(rateSetter).deny(oldMom);
         StUsdsMomLike(oldMom).setAuthority(address(0));
         StUsdsMomLike(oldMom).setOwner(address(0));
-
-        dss.chainlog.setAddress("STUSDS_MOM", newMom);
     }
 }
