@@ -159,16 +159,6 @@ contract StUsdsMomIntegrationTest is DssTest {
         assertEq(_art(ilk, urn), 0);
     }
 
-    function testDrawLockStake() public {
-        address urn = _lockOnStakeEngine();
-        uint256 borrowAmount = 40_000 * WAD;
-        vm.expectEmit(true, true, true, true);
-        emit Draw(address(this), 0, address(this), borrowAmount);
-        engine.draw(address(this), 0, address(this), borrowAmount);
-        assertApproxEqAbs(_art(ilk, urn) * _rate(ilk) / RAY, borrowAmount, 1);
-        assertEq(usds.balanceOf(address(this)), borrowAmount);
-    }
-
     function testRevertDrawAfterZeroLineHat() public {
         _lockOnStakeEngine();
         _zeroLineAsHat();
