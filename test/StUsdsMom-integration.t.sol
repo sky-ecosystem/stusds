@@ -56,6 +56,7 @@ contract StUsdsMomIntegrationTest is DssTest {
     bytes32 ilk;
 
     event Draw(address indexed owner, uint256 indexed index, address to, uint256 wad);
+    event Drip(uint256 chi, uint256 diff);
     event ZeroLine(address indexed rateSetter);
 
     function setUp() public {
@@ -74,7 +75,7 @@ contract StUsdsMomIntegrationTest is DssTest {
 
         ilk = stusds.ilk();
 
-        vm.startPrank(pauseProxy);
+        vm.prank(pauseProxy);
         mom = StUsdsMom(StUsdsDeploy.deployMom(pauseProxy));
 
         assertEq(mom.owner(), pauseProxy);
@@ -82,14 +83,13 @@ contract StUsdsMomIntegrationTest is DssTest {
         assertEq(address(mom.stusds()), address(stusds));
         assertEq(ilk, engine.ilk());
 
+        vm.startPrank(pauseProxy);
         StUsdsInit.replaceMom(
             dss,
             address(mom)
         );
         vm.stopPrank();
-    }
 
-    function testReplaceMom() public view {
         assertEq(stusds.wards(address(mom)), 1);
         assertEq(rateSetter.wards(address(mom)), 1);
         assertEq(mom.authority(), dss.chainlog.getAddress("MCD_ADM"));
@@ -111,25 +111,27 @@ contract StUsdsMomIntegrationTest is DssTest {
     }
 
     function testRevertReplaceMomWithSameMom() public {
-        vm.startPrank(pauseProxy);
         vm.expectRevert("StUsdsInit/same-mom");
+        vm.prank(pauseProxy);
         this.__replaceMomHelper(address(mom));
-        vm.stopPrank();
     }
 
     function testRevertWrongStUsds() public {
         StUsdsMom badMom = new StUsdsMom(address(0x01));
-        vm.startPrank(pauseProxy);
         vm.expectRevert("StUsdsInit/stusds-does-not-match");
+        vm.prank(pauseProxy);
         this.__replaceMomHelper(address(badMom));
-        vm.stopPrank();
     }
 
     function _checkZeroLine(address who) internal {
-        vm.prank(who);
+        vm.expectEmit(false, false, false, false, address(stusds));
+        emit Drip(0,0);
         vm.expectEmit(true, true, true, true);
         emit ZeroLine(address(rateSetter));
+
+        vm.prank(who);
         mom.zeroLine(address(rateSetter));
+
         assertEq(stusds.line(), 0);
         assertEq(rateSetter.maxLine(), 0);
     }
