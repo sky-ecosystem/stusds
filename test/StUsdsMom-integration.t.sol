@@ -101,7 +101,9 @@ contract StUsdsMomIntegrationTest is DssTest {
     // Expose the StUsdsInit library path through an external call, so revert
     // assertions can target `replaceMom()`.
     function __replaceMomHelper(address newMom) external {
+        vm.startPrank(pauseProxy);
         StUsdsInit.replaceMom(dss, newMom);
+        vm.stopPrank();
     }
 
     function testRevertReplaceMomWithSameMom() public {
