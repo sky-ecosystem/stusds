@@ -21,7 +21,7 @@ interface AuthorityLike {
 }
 
 interface StUsdsLike {
-    function drip() external returns (uint256 nChi);
+    function drip() external returns (uint256);
     function file(bytes32, uint256) external;
 }
 
