@@ -110,14 +110,12 @@ contract StUsdsMomIntegrationTest is DssTest {
 
     function testRevertReplaceMomWithSameMom() public {
         vm.expectRevert("StUsdsInit/same-mom");
-        vm.prank(pauseProxy);
         this.__replaceMomHelper(address(mom));
     }
 
     function testRevertWrongStUsds() public {
         StUsdsMom badMom = new StUsdsMom(address(0x01));
         vm.expectRevert("StUsdsInit/stusds-does-not-match");
-        vm.prank(pauseProxy);
         this.__replaceMomHelper(address(badMom));
     }
 
