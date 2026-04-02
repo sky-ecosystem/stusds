@@ -30,7 +30,7 @@ interface StUsdsLike {
     function file(bytes32, uint256) external;
     function drip() external returns (uint256);
     function rely(address) external;
-    function deny(address usr) external;
+    function deny(address) external;
 }
 
 interface AutoLineLike {
