@@ -142,14 +142,6 @@ contract StUsdsMomIntegrationTest is DssTest {
         (, rate,,,) = dss.vat.ilks(ilk_);
     }
 
-    function _zeroLineAsHat() internal {
-        _checkZeroLine(chief.hat());
-    }
-
-    function _zeroLineAsOwner() internal {
-        _checkZeroLine(pauseProxy);
-    }
-
     function _lockOnStakeEngine() internal returns (address urn) {
         uint256 lockAmount = 3_000_000 * WAD;
         deal(address(sky), address(this), lockAmount, true);
@@ -161,7 +153,7 @@ contract StUsdsMomIntegrationTest is DssTest {
 
     function testRevertDrawAfterZeroLineHat() public {
         _lockOnStakeEngine();
-        _zeroLineAsHat();
+        _checkZeroLine(chief.hat());
         uint256 borrowAmount = 40_000 * WAD;
         vm.expectRevert("Vat/ceiling-exceeded");
         engine.draw(address(this), 0, address(this), borrowAmount);
@@ -169,7 +161,7 @@ contract StUsdsMomIntegrationTest is DssTest {
 
     function testRevertDrawAfterZeroLineOwner() public {
         _lockOnStakeEngine();
-        _zeroLineAsOwner();
+        _checkZeroLine(pauseProxy);
         uint256 borrowAmount = 40_000 * WAD;
         vm.expectRevert("Vat/ceiling-exceeded");
         engine.draw(address(this), 0, address(this), borrowAmount);
