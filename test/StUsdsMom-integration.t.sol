@@ -45,7 +45,6 @@ contract StUsdsMomIntegrationTest is DssTest {
     DssInstance         dss;
     ChiefLike           chief;
     LockStakeEngineLike engine;
-    UsdsLike            usds;
     DSTokenAbstract     sky;
     StUsdsRateSetter    rateSetter;
     StUsds              stusds;
@@ -67,7 +66,6 @@ contract StUsdsMomIntegrationTest is DssTest {
 
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
         engine     = LockStakeEngineLike(dss.chainlog.getAddress("LOCKSTAKE_ENGINE"));
-        usds       = UsdsLike(dss.chainlog.getAddress("USDS"));
         sky        = DSTokenAbstract(dss.chainlog.getAddress("SKY"));
         stusds     = StUsds(dss.chainlog.getAddress("STUSDS"));
         rateSetter = StUsdsRateSetter(dss.chainlog.getAddress("STUSDS_RATE_SETTER"));
