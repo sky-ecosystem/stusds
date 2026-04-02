@@ -54,7 +54,7 @@ interface SPBEAMLike {
 interface StUsdsMomLike {
     function stusds() external view returns (address);
     function setAuthority(address) external;
-    function setOwner(address owner_) external;
+    function setOwner(address) external;
 }
 
 struct StUsdsConfig {
