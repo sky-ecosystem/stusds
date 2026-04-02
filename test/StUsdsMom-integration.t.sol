@@ -35,10 +35,6 @@ interface LockStakeEngineLike {
     function open(uint256 index) external returns (address urn);
 }
 
-interface UsdsLike {
-    function balanceOf(address) external view returns (uint256);
-}
-
 contract StUsdsMomIntegrationTest is DssTest {
     address constant CHAINLOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
