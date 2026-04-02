@@ -44,7 +44,7 @@ interface RateSetterLike {
     function file(bytes32, bytes32, uint256) external;
     function kiss(address) external;
     function rely(address) external;
-    function deny(address usr) external;
+    function deny(address) external;
 }
 
 interface SPBEAMLike {
