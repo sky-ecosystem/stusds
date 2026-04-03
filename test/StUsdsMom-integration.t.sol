@@ -111,10 +111,8 @@ contract StUsdsMomIntegrationTest is DssTest {
     }
 
     function testRevertReplaceMomWithSameMom() public {
-        this.__replaceMomHelper(address(mom));
-
         vm.expectRevert("StUsdsInit/same-mom");
-        this.__replaceMomHelper(address(mom));
+        this.__replaceMomHelper(address(oldMom));
     }
 
     function testRevertWrongStUsds() public {
