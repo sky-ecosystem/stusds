@@ -172,6 +172,7 @@ contract StUsdsMomIntegrationTest is DssTest {
         address urn = _lockOnStakeEngine();
 
         engine.draw(address(this), 0, address(this), borrowAmount);
+        // `_lockOnStakeEngine()` asserts the urn starts with zero debt
         assertGe(_art(ilk, urn), 0);
 
         _setZeroLineAs(chief.hat());
@@ -185,6 +186,7 @@ contract StUsdsMomIntegrationTest is DssTest {
         address urn = _lockOnStakeEngine();
 
         engine.draw(address(this), 0, address(this), borrowAmount);
+        // `_lockOnStakeEngine()` asserts the urn starts with zero debt
         assertGe(_art(ilk, urn), 0);
 
         _setZeroLineAs(pauseProxy);
