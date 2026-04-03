@@ -71,18 +71,23 @@ contract StUsdsMomIntegrationTest is DssTest {
 
         vm.prank(pauseProxy);
         mom = StUsdsMom(StUsdsDeploy.deployMom(pauseProxy));
+    }
 
+    // Expose the StUsdsInit library path through an external call, so revert
+    // assertions can target `replaceMom()`.
+    function __replaceMomHelper(address newMom) external {
+        vm.startPrank(pauseProxy);
+        StUsdsInit.replaceMom(dss, newMom);
+        vm.stopPrank();
+    }
+
+    function testReplaceMom() public {
         assertEq(mom.owner(), pauseProxy);
         assertEq(mom.authority(), address(0));
         assertEq(address(mom.stusds()), address(stusds));
         assertEq(ilk, engine.ilk());
 
-        vm.startPrank(pauseProxy);
-        StUsdsInit.replaceMom(
-            dss,
-            address(mom)
-        );
-        vm.stopPrank();
+        this.__replaceMomHelper(address(mom));
 
         assertEq(stusds.wards(address(mom)), 1);
         assertEq(rateSetter.wards(address(mom)), 1);
@@ -98,15 +103,9 @@ contract StUsdsMomIntegrationTest is DssTest {
         assertEq(oldMom.owner(), address(0));
     }
 
-    // Expose the StUsdsInit library path through an external call, so revert
-    // assertions can target `replaceMom()`.
-    function __replaceMomHelper(address newMom) external {
-        vm.startPrank(pauseProxy);
-        StUsdsInit.replaceMom(dss, newMom);
-        vm.stopPrank();
-    }
-
     function testRevertReplaceMomWithSameMom() public {
+        this.__replaceMomHelper(address(mom));
+
         vm.expectRevert("StUsdsInit/same-mom");
         this.__replaceMomHelper(address(mom));
     }
@@ -118,6 +117,8 @@ contract StUsdsMomIntegrationTest is DssTest {
     }
 
     function _checkZeroLine(address who) internal {
+        this.__replaceMomHelper(address(mom));
+
         vm.expectEmit(false, false, false, false, address(stusds));
         emit Drip(0,0);
         vm.expectEmit(true, true, true, true);
