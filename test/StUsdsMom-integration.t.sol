@@ -155,7 +155,7 @@ contract StUsdsMomIntegrationTest is DssTest {
         rateSetter.file("maxLine", RAD);
         vm.stopPrank();
 
-        (,,, uint256 vatLine,) = dss.vat.ilks(ilk);
+        (,,, uint256 vatLine,) = vat.ilks(ilk);
         assertEq(vatLine, type(uint256).max);
         assertEq(stusds.line(), RAD);
         assertEq(rateSetter.maxLine(), RAD);
