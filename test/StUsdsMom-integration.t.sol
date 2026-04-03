@@ -123,7 +123,7 @@ contract StUsdsMomIntegrationTest is DssTest {
         this.__replaceMomHelper(address(badMom));
     }
 
-    function _checkZeroLine(address who) internal {
+    function _setZeroLineAs(address who) internal {
         this.__replaceMomHelper(address(mom));
 
         vm.expectEmit(false, false, false, false, address(stusds));
@@ -168,17 +168,27 @@ contract StUsdsMomIntegrationTest is DssTest {
     }
 
     function testRevertDrawAfterZeroLineHat() public {
-        _lockOnStakeEngine();
-        _checkZeroLine(chief.hat());
         uint256 borrowAmount = 40_000 * WAD;
+        address urn = _lockOnStakeEngine();
+
+        engine.draw(address(this), 0, address(this), borrowAmount);
+        assertGe(_art(ilk, urn), 0);
+
+        _setZeroLineAs(chief.hat());
+
         vm.expectRevert("Vat/ceiling-exceeded");
         engine.draw(address(this), 0, address(this), borrowAmount);
     }
 
     function testRevertDrawAfterZeroLineOwner() public {
-        _lockOnStakeEngine();
-        _checkZeroLine(pauseProxy);
         uint256 borrowAmount = 40_000 * WAD;
+        address urn = _lockOnStakeEngine();
+
+        engine.draw(address(this), 0, address(this), borrowAmount);
+        assertGe(_art(ilk, urn), 0);
+
+        _setZeroLineAs(pauseProxy);
+
         vm.expectRevert("Vat/ceiling-exceeded");
         engine.draw(address(this), 0, address(this), borrowAmount);
     }
