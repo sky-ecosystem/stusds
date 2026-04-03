@@ -35,6 +35,11 @@ interface LockStakeEngineLike {
     function open(uint256 index) external returns (address urn);
 }
 
+interface VatLike {
+    function file(bytes32, bytes32, uint256) external;
+    function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
+}
+
 contract StUsdsMomIntegrationTest is DssTest {
     address constant CHAINLOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
@@ -46,6 +51,7 @@ contract StUsdsMomIntegrationTest is DssTest {
     StUsds              stusds;
     StUsdsMom           oldMom;
     StUsdsMom           mom;
+    VatLike             vat;
     address             pauseProxy;
 
     bytes32 ilk;
@@ -66,6 +72,7 @@ contract StUsdsMomIntegrationTest is DssTest {
         stusds     = StUsds(dss.chainlog.getAddress("STUSDS"));
         rateSetter = StUsdsRateSetter(dss.chainlog.getAddress("STUSDS_RATE_SETTER"));
         oldMom     = StUsdsMom(dss.chainlog.getAddress("STUSDS_MOM"));
+        vat        = VatLike(dss.chainlog.getAddress("MCD_VAT"));
 
         ilk = stusds.ilk();
 
@@ -141,6 +148,18 @@ contract StUsdsMomIntegrationTest is DssTest {
 
     function _lockOnStakeEngine() internal returns (address urn) {
         uint256 lockAmount = 3_000_000 * WAD;
+
+        vm.startPrank(pauseProxy);
+        vat.file(ilk, "line", type(uint256).max);
+        stusds.file("line", RAD);
+        rateSetter.file("maxLine", RAD);
+        vm.stopPrank();
+
+        (,,, uint256 vatLine,) = dss.vat.ilks(ilk);
+        assertEq(vatLine, type(uint256).max);
+        assertEq(stusds.line(), RAD);
+        assertEq(rateSetter.maxLine(), RAD);
+
         deal(address(sky), address(this), lockAmount, true);
         urn = engine.open(0);
         sky.approve(address(engine), lockAmount);
