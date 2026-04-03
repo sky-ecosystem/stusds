@@ -56,7 +56,6 @@ contract StUsdsMomIntegrationTest is DssTest {
 
     bytes32 ilk;
 
-    event Draw(address indexed owner, uint256 indexed index, address to, uint256 wad);
     event Drip(uint256 chi, uint256 diff);
     event ZeroLine(address indexed rateSetter);
 
@@ -140,23 +139,30 @@ contract StUsdsMomIntegrationTest is DssTest {
         (, art) = dss.vat.urns(ilk_, urn);
     }
 
-    function _rate(bytes32 ilk_) internal view returns (uint256 rate) {
-        (, rate,,,) = dss.vat.ilks(ilk_);
+
+    function _divUp(uint256 x, uint256 y) internal pure returns (uint256) {
+        return (x + y - 1) / y;
     }
 
-    function _lockOnStakeEngine() internal returns (address urn) {
+    function _lockOnStakeEngine(uint256 borrowAmount) internal returns (address urn) {
         uint256 lockAmount = 3_000_000 * WAD;
+
+        // `borrowAmount` is passed in so the line can be sized for the
+        // intended draw, with a small safety margin of 10%
+        (uint256 art, uint256 rate,,,) = vat.ilks(ilk);
+        uint256 dart = _divUp(borrowAmount * RAY, rate);
+        uint256 line = (art + dart) * rate * 110 / 100;
 
         vm.startPrank(pauseProxy);
         vat.file(ilk, "line", type(uint256).max);
-        stusds.file("line", RAD);
-        rateSetter.file("maxLine", RAD);
+        stusds.file("line", line);
+        rateSetter.file("maxLine", line);
         vm.stopPrank();
 
         (,,, uint256 vatLine,) = vat.ilks(ilk);
         assertEq(vatLine, type(uint256).max);
-        assertEq(stusds.line(), RAD);
-        assertEq(rateSetter.maxLine(), RAD);
+        assertEq(stusds.line(), line);
+        assertEq(rateSetter.maxLine(), line);
 
         deal(address(sky), address(this), lockAmount, true);
         urn = engine.open(0);
@@ -167,11 +173,11 @@ contract StUsdsMomIntegrationTest is DssTest {
 
     function testRevertDrawAfterZeroLineHat() public {
         uint256 borrowAmount = 40_000 * WAD;
-        address urn = _lockOnStakeEngine();
+        address urn = _lockOnStakeEngine(borrowAmount);
 
         engine.draw(address(this), 0, address(this), borrowAmount);
         // `_lockOnStakeEngine()` asserts the urn starts with zero debt
-        assertGe(_art(ilk, urn), 0);
+        assertGt(_art(ilk, urn), 0);
 
         _setZeroLineAs(chief.hat());
 
@@ -181,11 +187,11 @@ contract StUsdsMomIntegrationTest is DssTest {
 
     function testRevertDrawAfterZeroLineOwner() public {
         uint256 borrowAmount = 40_000 * WAD;
-        address urn = _lockOnStakeEngine();
+        address urn = _lockOnStakeEngine(borrowAmount);
 
         engine.draw(address(this), 0, address(this), borrowAmount);
         // `_lockOnStakeEngine()` asserts the urn starts with zero debt
-        assertGe(_art(ilk, urn), 0);
+        assertGt(_art(ilk, urn), 0);
 
         _setZeroLineAs(pauseProxy);
 
