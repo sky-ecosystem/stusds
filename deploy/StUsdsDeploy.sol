@@ -63,4 +63,15 @@ library StUsdsDeploy {
         instance.rateSetter  = _rateSetter;
         instance.mom         = address(_mom);
     }
+
+    function deployMom(
+        address owner
+    ) internal returns (address mom) {
+        ChainlogAbstract chainlog = ChainlogAbstract(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
+
+        StUsdsMom _mom = new StUsdsMom(chainlog.getAddress("STUSDS"));
+        _mom.setOwner(owner);
+
+        mom = address(_mom);
+    }
 }

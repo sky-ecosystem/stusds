@@ -30,6 +30,7 @@ interface StUsdsLike {
     function file(bytes32, uint256) external;
     function drip() external returns (uint256);
     function rely(address) external;
+    function deny(address) external;
 }
 
 interface AutoLineLike {
@@ -37,13 +38,13 @@ interface AutoLineLike {
 }
 
 interface RateSetterLike {
-    function jug() external view returns (address);
     function stusds() external view returns (address);
     function conv() external view returns (address);
     function file(bytes32, uint256) external;
     function file(bytes32, bytes32, uint256) external;
     function kiss(address) external;
     function rely(address) external;
+    function deny(address) external;
 }
 
 interface SPBEAMLike {
@@ -53,6 +54,7 @@ interface SPBEAMLike {
 interface StUsdsMomLike {
     function stusds() external view returns (address);
     function setAuthority(address) external;
+    function setOwner(address) external;
 }
 
 struct StUsdsConfig {
@@ -140,5 +142,31 @@ library StUsdsInit {
         dss.chainlog.setAddress("STUSDS_IMP",         instance.stUsdsImp);
         dss.chainlog.setAddress("STUSDS_RATE_SETTER", instance.rateSetter);
         dss.chainlog.setAddress("STUSDS_MOM",         instance.mom);
+    }
+
+    function replaceMom(
+        DssInstance memory dss,
+        address            newMom
+    ) internal {
+        address stUsds     = dss.chainlog.getAddress("STUSDS");
+        address rateSetter = dss.chainlog.getAddress("STUSDS_RATE_SETTER");
+        address oldMom     = dss.chainlog.getAddress("STUSDS_MOM");
+        address chief      = dss.chainlog.getAddress("MCD_ADM");
+
+        require(newMom != oldMom,                         "StUsdsInit/same-mom");
+        require(StUsdsMomLike(newMom).stusds() == stUsds, "StUsdsInit/stusds-does-not-match");
+
+        // New Mom Configuration
+        StUsdsLike(stUsds).rely(newMom);
+        RateSetterLike(rateSetter).rely(newMom);
+        StUsdsMomLike(newMom).setAuthority(chief);
+
+        dss.chainlog.setAddress("STUSDS_MOM", newMom);
+
+        // Old Mom Decommission
+        StUsdsLike(stUsds).deny(oldMom);
+        RateSetterLike(rateSetter).deny(oldMom);
+        StUsdsMomLike(oldMom).setAuthority(address(0));
+        StUsdsMomLike(oldMom).setOwner(address(0));
     }
 }

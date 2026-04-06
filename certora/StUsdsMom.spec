@@ -2,26 +2,33 @@
 
 using StUsds as stusds;
 using StUsdsRateSetter as rateSetter;
+using Vat as vat;
 
 methods {
     // storage variables
     function owner() external returns (address) envfree;
     function authority() external returns (address) envfree;
+
     // immutables
     function stusds() external returns (address) envfree;
-    //
+
     function stusds.wards(address) external returns (uint256) envfree;
+    function stusds.cap() external returns (uint256) envfree;
+    function stusds.ilk() external returns (bytes32) envfree;
     function stusds.line() external returns (uint256) envfree;
+
     function rateSetter.wards(address) external returns (uint256) envfree;
     function rateSetter.buds(address) external returns (uint256) envfree;
     function rateSetter.bad() external returns (uint8) envfree;
     function rateSetter.maxCap() external returns (uint256) envfree;
     function rateSetter.maxLine() external returns (uint256) envfree;
-    function stusds.cap() external returns (uint256) envfree;
-    //
+
+    function vat.ilks(bytes32) external returns (uint256, uint256, uint256, uint256, uint256) envfree;
+
     function _.diss(address) external => DISPATCHER(true);
     function _.file(bytes32, uint256) external => DISPATCHER(true);
     function _.canCall(address, address, bytes4) external => canCallSummary() expect bool;
+    function _.Due() external => CONSTANT;
 }
 
 persistent ghost bool retCanCall;
@@ -63,7 +70,7 @@ rule storage_affected(method f) {
 }
 
 // Verify correct storage changes for non reverting setOwner
-rule setOwner(address owner_) { 
+rule setOwner(address owner_) {
     env e;
 
     setOwner(e, owner_);
@@ -88,7 +95,7 @@ rule setOwner_revert(address owner_) {
 }
 
 // Verify correct storage changes for non reverting setAuthority
-rule setAuthority(address authority_) { 
+rule setAuthority(address authority_) {
     env e;
 
     setAuthority(e, authority_);
@@ -225,8 +232,12 @@ rule zeroLine(address rateSetter_) {
     mathint rateSetterMaxLineAfter = rateSetter.maxLine();
     mathint stusdsLineAfter = stusds.line();
 
+    mathint vatLineAfter;
+    _, _, _, vatLineAfter, _ = vat.ilks(stusds.ilk());
+
     assert rateSetterMaxLineAfter == 0, "Assert 1";
     assert stusdsLineAfter == 0, "Assert 2";
+    assert vatLineAfter == 0, "Assert 3";
 }
 
 // Verify revert rules on zeroLine
@@ -235,14 +246,20 @@ rule zeroLine_revert(address rateSetter_) {
 
     require rateSetter_ == rateSetter;
 
-    address owner = owner();
-    address authority = authority();
-
     // Happening in init scripts
     require stusds.wards(currentContract) == 1;
     require rateSetter.wards(currentContract) == 1;
 
-    zeroLine@withrevert(e, rateSetter_);
+    address owner = owner();
+    address authority = authority();
+    storage initial = lastStorage;
+
+    // Filter out stusds.drip() reverts, already proved in StUsds.spec.
+    // This also covers _setLine(): zeroLine only changes stusds.line before drip(),
+    // and line = 0 does not introduce new _setLine() reverts beyond the standalone drip() call.
+    stusds.drip(e);
+
+    zeroLine@withrevert(e, rateSetter_) at initial;
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = owner != e.msg.sender && (authority == 0 || !retCanCall);
