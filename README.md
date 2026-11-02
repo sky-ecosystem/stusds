@@ -70,3 +70,14 @@ The implementation assumes Maker emergency shutdown can not be triggered. Any sy
 The original code was created by hexonaut (SavingsDai) and the MakerDAO devs (Pot).
 Since it should belong to the MakerDAO community the Copyright for the code has been transferred to Dai Foundation
 
+## Audits
+
+Audit reports are hosted on the auditors' public portfolio pages:
+
+| Auditor | Report | Date |
+| --- | --- | --- |
+| Cantina | [Sky: StUsdsMom](https://cantina.xyz/portfolio/0d556926-e225-4326-a504-be6e4029a097) | 2026-04-26 |
+| ChainSecurity | [Sky stUSDS](https://www.chainsecurity.com/security-audit/sky-stusds/) | 2026-04-10 |
+| Cantina | [stUSDS](https://cantina.xyz/portfolio/66addc07-d452-474e-8f5c-bb054786fb3b) | 2025-08-08 |
+
+ChainSecurity reports are cumulative: each portfolio page hosts the latest version of the report, which covers all previously reviewed versions.
